@@ -19,5 +19,8 @@ void AppProtocol_Init(uint32_t sessionId);
 /* 用途：处理一个已通过协议校验的帧；输出 ACK/NACK；不允许 ISR 调用。 */
 void AppProtocol_HandleFrame(const ProtocolFrame *frame);
 
+/* 用途：每个 10 ms 边界后发送延迟参数 ACK、可丢遥测和可靠汇总；禁止 ISR 调用。 */
+void AppProtocol_OnControlBoundary(uint32_t tick);
+
 #endif /* APP_PROTOCOL_H */
 // ----- AI

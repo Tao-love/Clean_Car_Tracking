@@ -17,21 +17,28 @@
 #include "main.h"
 #include "motor.h"
 #include "protocol.h"
+#include "trial_manager.h"
 #include "uart_transport.h"
 
 #define PROTOCOL_POLL_BYTE_BUDGET (64U)
-#define INITIAL_SESSION_ID        (0xB13A0001UL)
+#define SESSION_TRNG_TIMEOUT      (100000UL)
+#define SESSION_FALLBACK_ID       (0xB13A0001UL)
 
 volatile uint32_t gControlTick = 0U;
 
+static uint32_t App_CreateSessionId(void);
+
 int main(void)
 {
+    uint32_t lastProcessedTick = 0U;
+
     /* 按 SysConfig 生成配置初始化时钟、GPIO、PWM、UART 和定时器；此时 PWM 默认比较值为 0。 */
     SYSCFG_DL_init();
     /* Motor_Init 的第一个硬件动作是同时清零两路 PWM 和四个方向脚。 */
     Motor_Init();
+    TrialManager_Init(0U, 0);
     UART_Transport_Init();
-    AppProtocol_Init(INITIAL_SESSION_ID);
+    AppProtocol_Init(App_CreateSessionId());
     Protocol_Init(AppProtocol_HandleFrame);
 
     /* 允许 TIMG0 的 10 ms 周期中断进入 CPU，ISR 只递增单调 tick。 */
@@ -40,9 +47,49 @@ int main(void)
     DL_TimerG_startCounter(TIMER_CONTROL_INST);
 
     while (1) {
+        uint32_t currentTick;
+
         /* 每次最多解析 64 个 UART 字节，避免噪声流长时间占用主循环。 */
         (void) Protocol_Poll(PROTOCOL_POLL_BYTE_BUDGET);
+
+        currentTick = gControlTick;
+        if (currentTick != lastProcessedTick) {
+            uint32_t elapsed = currentTick - lastProcessedTick;
+
+            if (elapsed > 1U) {
+                uint32_t missed = elapsed - 1U;
+                TrialManager_ReportOverrun(currentTick,
+                    (missed > UINT16_MAX) ? UINT16_MAX : (uint16_t) missed);
+            }
+            TrialManager_ControlTick(currentTick);
+            AppProtocol_OnControlBoundary(currentTick);
+            lastProcessedTick = currentTick;
+        }
     }
+}
+
+static uint32_t App_CreateSessionId(void)
+{
+    uint32_t timeout = SESSION_TRNG_TIMEOUT;
+    uint32_t sessionId = SESSION_FALLBACK_ID;
+
+    /* 等待 TRNG 完成一次真随机捕获；此时 Motor_Init 已统一停车，且等待有硬上限。 */
+    while (!DL_TRNG_isCaptureReady(TRNG) && (timeout != 0U)) {
+        timeout--;
+    }
+    if (timeout != 0U) {
+        /* 清除 TRNG 捕获完成标志，便于外设正确收尾。 */
+        DL_TRNG_clearInterruptStatus(
+            TRNG, DL_TRNG_INTERRUPT_CAPTURE_RDY_EVENT);
+        /* 读出 32 位真随机捕获值作为本次上电的 Session ID。 */
+        sessionId = DL_TRNG_getCapture(TRNG);
+        if (sessionId == 0U) {
+            sessionId = SESSION_FALLBACK_ID;
+        }
+    }
+    /* Session ID 只需一次随机数，随后关闭 TRNG 电源降低功耗。 */
+    DL_TRNG_disablePower(TRNG);
+    return sessionId;
 }
 
 void TIMER_CONTROL_INST_IRQHandler(void)

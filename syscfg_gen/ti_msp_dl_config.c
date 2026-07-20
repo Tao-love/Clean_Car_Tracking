@@ -41,6 +41,7 @@
 #include "ti_msp_dl_config.h"
 
 DL_TimerA_backupConfig gPWM_MOTORBackup;
+DL_TRNG_backupConfig gTRNGBackup;
 
 /*
  *  ======== SYSCFG_DL_init ========
@@ -57,10 +58,12 @@ SYSCONFIG_WEAK void SYSCFG_DL_init(void)
     SYSCFG_DL_I2C_OLED_init();
     SYSCFG_DL_I2C_MPU6050_init();
     SYSCFG_DL_UART_DEBUG_init();
+    SYSCFG_DL_TRNG_init();
     /* Ensure backup structures have no valid state */
 	gPWM_MOTORBackup.backupRdy 	= false;
 
 
+	gTRNGBackup.backupRdy 	= false;
 
 }
 /*
@@ -72,6 +75,7 @@ SYSCONFIG_WEAK bool SYSCFG_DL_saveConfiguration(void)
     bool retStatus = true;
 
 	retStatus &= DL_TimerA_saveConfiguration(PWM_MOTOR_INST, &gPWM_MOTORBackup);
+	retStatus &= DL_TRNG_saveConfiguration(TRNG, &gTRNGBackup);
 
     return retStatus;
 }
@@ -82,6 +86,7 @@ SYSCONFIG_WEAK bool SYSCFG_DL_restoreConfiguration(void)
     bool retStatus = true;
 
 	retStatus &= DL_TimerA_restoreConfiguration(PWM_MOTOR_INST, &gPWM_MOTORBackup, false);
+	retStatus &= DL_TRNG_restoreConfiguration(TRNG, &gTRNGBackup);
 
     return retStatus;
 }
@@ -95,6 +100,7 @@ SYSCONFIG_WEAK void SYSCFG_DL_initPower(void)
     DL_I2C_reset(I2C_OLED_INST);
     DL_I2C_reset(I2C_MPU6050_INST);
     DL_UART_Main_reset(UART_DEBUG_INST);
+    DL_TRNG_reset(TRNG);
 
     DL_GPIO_enablePower(GPIOA);
     DL_GPIO_enablePower(GPIOB);
@@ -103,6 +109,7 @@ SYSCONFIG_WEAK void SYSCFG_DL_initPower(void)
     DL_I2C_enablePower(I2C_OLED_INST);
     DL_I2C_enablePower(I2C_MPU6050_INST);
     DL_UART_Main_enablePower(UART_DEBUG_INST);
+    DL_TRNG_enablePower(TRNG);
     delay_cycles(POWER_STARTUP_DELAY);
 }
 
@@ -451,5 +458,17 @@ SYSCONFIG_WEAK void SYSCFG_DL_UART_DEBUG_init(void)
     DL_UART_Main_setTXFIFOThreshold(UART_DEBUG_INST, DL_UART_TX_FIFO_LEVEL_1_2_EMPTY);
 
     DL_UART_Main_enable(UART_DEBUG_INST);
+}
+
+SYSCONFIG_WEAK void SYSCFG_DL_TRNG_init(void)
+{
+    DL_TRNG_setClockDivider(TRNG, DL_TRNG_CLOCK_DIVIDE_2);
+
+    DL_TRNG_sendCommand(TRNG, DL_TRNG_CMD_NORM_FUNC);
+    while (!DL_TRNG_isCommandDone(TRNG))
+        ;
+    DL_TRNG_clearInterruptStatus(TRNG, DL_TRNG_INTERRUPT_CMD_DONE_EVENT);
+
+    DL_TRNG_setDecimationRate(TRNG, DL_TRNG_DECIMATION_RATE_4);
 }
 

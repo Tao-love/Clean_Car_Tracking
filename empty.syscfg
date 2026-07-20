@@ -26,6 +26,10 @@ const TIMER  = scripting.addModule("/ti/driverlib/TIMER", {}, false);
 const TIMER_CONTROL = TIMER.addInstance();
 const UART   = scripting.addModule("/ti/driverlib/UART", {}, false);
 const UART_DEBUG = UART.addInstance();
+// ----- AI
+// TRNG 每次上电产生新的 Session ID，防止复位前残留命令在新会话重放。
+const TRNG = scripting.addModule("/ti/driverlib/TRNG");
+// ----- AI
 
 /**
  * Write custom configuration values to the imported modules.
