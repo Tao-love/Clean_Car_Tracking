@@ -68,7 +68,7 @@ class SerialLinkTests(unittest.TestCase):
         transport = FakeTransport(lambda data, count: None)
         link = SerialLink(transport)
         try:
-            summary = Frame(MessageType.TRIAL_SUMMARY, 0, 0, bytes(118))
+            summary = Frame(MessageType.TRIAL_SUMMARY, 0, 0, bytes(128))
             with transport._lock:
                 transport._rx.extend(encode_frame(summary))
             received = link.wait_for_type(MessageType.TRIAL_SUMMARY, timeout=0.2)

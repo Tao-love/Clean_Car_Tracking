@@ -68,6 +68,10 @@ void TrialStats_AddSample(const ControlSample *sample)
     } else {
         gCurrentLostTicks = 0U;
     }
+    if (sample->line.specialPattern) {
+        gSummary.specialPatternSamples =
+            TrialStats_AddSatU16(gSummary.specialPatternSamples, 1U);
+    }
 
     gSummary.leftTargetSum = TrialStats_AddSatI64(
         gSummary.leftTargetSum, sample->leftTarget);
@@ -101,6 +105,18 @@ void TrialStats_AddSample(const ControlSample *sample)
     }
     if (TrialStats_AbsI16(sample->rightPwm) > gSummary.maxAbsRightPwm) {
         gSummary.maxAbsRightPwm = TrialStats_AbsI16(sample->rightPwm);
+    }
+    if (TrialStats_AbsI16(sample->leftTarget) > gSummary.maxAbsLeftTarget) {
+        gSummary.maxAbsLeftTarget = TrialStats_AbsI16(sample->leftTarget);
+    }
+    if (TrialStats_AbsI16(sample->rightTarget) > gSummary.maxAbsRightTarget) {
+        gSummary.maxAbsRightTarget = TrialStats_AbsI16(sample->rightTarget);
+    }
+    if (TrialStats_AbsI16(sample->leftSpeed) > gSummary.maxAbsLeftSpeed) {
+        gSummary.maxAbsLeftSpeed = TrialStats_AbsI16(sample->leftSpeed);
+    }
+    if (TrialStats_AbsI16(sample->rightSpeed) > gSummary.maxAbsRightSpeed) {
+        gSummary.maxAbsRightSpeed = TrialStats_AbsI16(sample->rightSpeed);
     }
     if (sample->targetSaturated) {
         gSummary.targetSaturationSamples =

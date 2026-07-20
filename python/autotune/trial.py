@@ -7,6 +7,7 @@
 """
 
 from dataclasses import dataclass
+from collections.abc import Callable
 from typing import Protocol
 
 from .models import ControlParams, TrialSummary
@@ -30,12 +31,22 @@ class TrialResult:
     score: ScoreResult
 
 
+class UnsafeTrialError(RuntimeError):
+    """自动阶段遇到本地安全故障，已暂停并尝试恢复 last-safe RAM 参数。"""
+
+
 class TrialRunner:
     """执行候选并保存最后一组成功且分数有效的参数。"""
 
-    def __init__(self, session: TrialSession, score_config: ScoreConfig) -> None:
+    def __init__(
+        self,
+        session: TrialSession,
+        score_config: ScoreConfig,
+        on_result: Callable[[TrialResult], None] | None = None,
+    ) -> None:
         self.session = session
         self.score_config = score_config
+        self.on_result = on_result
         self.last_safe: ControlParams | None = None
 
     def run_candidate(
@@ -68,7 +79,12 @@ class TrialRunner:
                 f"汇总参数版本 {summary.param_version} 与 ACK {version} 不匹配"
             )
         score = score_summary(summary, self.score_config)
+        result = TrialResult(params=params, summary=summary, score=score)
+        if self.on_result is not None:
+            self.on_result(result)
         if not score.failed:
             self.last_safe = params
-        return TrialResult(params=params, summary=summary, score=score)
+        elif self.last_safe is not None:
+            self.session.set_params(self.last_safe)
+        return result
 # ----- AI

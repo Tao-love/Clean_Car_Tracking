@@ -27,10 +27,15 @@ typedef struct {
     uint16_t pwmSaturationSamples;
     uint16_t signFlips;
     uint16_t controlOverruns;
+    uint16_t specialPatternSamples;
     int16_t maxAbsError;
     int16_t approximateP95Error;
     int16_t maxAbsLeftPwm;
     int16_t maxAbsRightPwm;
+    int16_t maxAbsLeftTarget;
+    int16_t maxAbsRightTarget;
+    int16_t maxAbsLeftSpeed;
+    int16_t maxAbsRightSpeed;
     int32_t leftEncoderCounts;
     int32_t rightEncoderCounts;
     int64_t absErrorSum;

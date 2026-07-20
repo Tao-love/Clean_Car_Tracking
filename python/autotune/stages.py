@@ -14,7 +14,7 @@ import numpy as np
 
 from .models import ControlParams, TrialSummary
 from .optimizer import BoundedCoordinateSearch, Evaluation, SearchResult
-from .trial import TrialResult, TrialRunner
+from .trial import TrialResult, TrialRunner, UnsafeTrialError
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,7 +53,9 @@ class AutotuneStages:
                 )
             )
             if result.score.failed:
-                break
+                raise UnsafeTrialError(
+                    f"开环 PWM {pwm} 触发安全失败，辨识已暂停"
+                )
         return points
 
     def tune_speed_pi(
@@ -80,8 +82,8 @@ class AutotuneStages:
             saturation = result.summary.pwm_saturation_samples / samples
             score = tracking + 100.0 * saturation
             if result.score.failed:
-                score += 1_000_000.0
-            return Evaluation(score, result.score.failed)
+                raise UnsafeTrialError("速度 PI 候选触发安全失败，搜索已暂停")
+            return Evaluation(score, False)
 
         return BoundedCoordinateSearch(fields, max_rounds).run(initial, evaluate)
 
@@ -95,6 +97,8 @@ class AutotuneStages:
 
         def evaluate(candidate: ControlParams) -> Evaluation:
             result = self.runner.run_candidate(candidate, mode=0)
+            if result.score.failed:
+                raise UnsafeTrialError("循线 PD 候选触发安全失败，搜索已暂停")
             return Evaluation(result.score.total, result.score.failed)
 
         return BoundedCoordinateSearch(fields, max_rounds).run(initial, evaluate)
@@ -111,7 +115,7 @@ class AutotuneStages:
             result = self.runner.run_candidate(replace(initial, base_speed=speed))
             results.append(result)
             if result.score.failed:
-                break
+                raise UnsafeTrialError("速度爬升触发安全失败，已恢复 last-safe 并暂停")
         return results
 
     def grid_search(
@@ -129,8 +133,9 @@ class AutotuneStages:
         for values in itertools.product(*value_lists):
             candidate = replace(initial, **dict(zip(names, values)))
             result = self.runner.run_candidate(candidate)
-            if not result.score.failed:
-                results.append(result)
+            if result.score.failed:
+                raise UnsafeTrialError("网格候选触发安全失败，搜索已暂停")
+            results.append(result)
         if not results:
             raise RuntimeError("网格中没有任何安全候选")
         scores = np.asarray([item.score.total for item in results], dtype=float)

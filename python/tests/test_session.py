@@ -25,7 +25,7 @@ class FakeLink:
         return Frame(MessageType.ACK, 0, 2, ack)
 
     def wait_for_type(self, message_type, timeout):
-        return Frame(MessageType.TRIAL_SUMMARY, 0, 0, bytes(118))
+        return Frame(MessageType.TRIAL_SUMMARY, 0, 0, bytes(128))
 
     def close(self):
         self.closed = True

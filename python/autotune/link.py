@@ -166,7 +166,11 @@ class SerialLink:
                 if not frames:
                     continue
                 with self._condition:
-                    self._frames.extend(frames)
+                    # 遥测只交给日志/VOFA 回调，不进入命令等待队列，避免长时整定无界增长。
+                    self._frames.extend(
+                        frame for frame in frames
+                        if int(frame.message_type) != int(MessageType.TELEMETRY)
+                    )
                     self._condition.notify_all()
                 if self._frame_callback is not None:
                     for frame in frames:

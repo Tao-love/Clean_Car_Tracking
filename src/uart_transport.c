@@ -81,6 +81,7 @@ UARTTransportCounters UART_Transport_GetCounters(void)
 
 void UART_DEBUG_INST_IRQHandler(void)
 {
+    /* 读取 UART1 当前最高优先级待处理中断，用于区分 RX 到达和 TX FIFO 空位。 */
     switch (DL_UART_Main_getPendingInterrupt(UART_DEBUG_INST)) {
         case DL_UART_MAIN_IIDX_RX:
             /* 一次清空硬件 RX FIFO，降低 9600 baud 连续字节的溢出风险。 */

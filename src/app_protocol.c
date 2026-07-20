@@ -22,7 +22,7 @@
 #define FIRMWARE_VERSION_PATCH (0U)
 #define RESPONSE_CACHE_SIZE    (8U)
 #define RESPONSE_CACHE_PAYLOAD (24U)
-#define SUMMARY_WIRE_SIZE      (118U)
+#define SUMMARY_WIRE_SIZE      (128U)
 
 #define CAPABILITY_RUNTIME_PARAMS (1UL << 0)
 #define CAPABILITY_TRIAL_5_SECONDS (1UL << 1)
@@ -110,9 +110,13 @@ void AppProtocol_HandleFrame(const ProtocolFrame *frame)
     if (frame == 0) {
         return;
     }
-    TrialManager_OnValidFrame(gControlTick);
+    if (frame->version != PROTOCOL_VERSION) {
+        AppProtocol_SendNack(frame, APP_STATUS_BAD_VERSION);
+        return;
+    }
     if (frame->type == PROTOCOL_MSG_HELLO) {
         if (frame->payloadLength == 0U) {
+            TrialManager_OnValidFrame(gControlTick);
             AppProtocol_SendHelloAck(frame->sequence);
         } else {
             AppProtocol_SendNack(frame, APP_STATUS_BAD_PAYLOAD);
@@ -157,6 +161,7 @@ static void AppProtocol_HandleSessionCommand(const ProtocolFrame *frame)
     if (!AppProtocol_ValidateSession(frame, 4U)) {
         return;
     }
+    TrialManager_OnValidFrame(gControlTick);
     if (AppProtocol_ResendCached(frame)) {
         return;
     }
@@ -445,10 +450,15 @@ static void AppProtocol_SendSummary(void)
     PUT_U16(summary.pwmSaturationSamples);
     PUT_U16(summary.signFlips);
     PUT_U16(summary.controlOverruns);
+    PUT_U16(summary.specialPatternSamples);
     PUT_I16(summary.maxAbsError);
     PUT_I16(summary.approximateP95Error);
     PUT_I16(summary.maxAbsLeftPwm);
     PUT_I16(summary.maxAbsRightPwm);
+    PUT_I16(summary.maxAbsLeftTarget);
+    PUT_I16(summary.maxAbsRightTarget);
+    PUT_I16(summary.maxAbsLeftSpeed);
+    PUT_I16(summary.maxAbsRightSpeed);
     PUT_I32(summary.leftEncoderCounts);
     PUT_I32(summary.rightEncoderCounts);
     PUT_I64(summary.absErrorSum);

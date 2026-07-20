@@ -48,15 +48,15 @@ class ControlParamsWireTests(unittest.TestCase):
 class TrialSummaryWireTests(unittest.TestCase):
     def test_decodes_signed_64_bit_accumulators(self) -> None:
         values = [
-            2, 500, 500, 2, 0, 0, 3, 3, 4, 5, 6, 7, 3500, 3000,
-            400, 399, 12345, -23456,
+            2, 500, 500, 2, 0, 0, 3, 3, 4, 5, 6, 7, 8,
+            3500, 3000, 400, 399, 20, 21, 19, 18, 12345, -23456,
             100, 200, -300, 400, -500, 600, 700, 800, 900, 1000,
         ]
         payload = TrialSummary.pack_test_vector(values)
 
         summary = TrialSummary.from_wire(payload)
 
-        self.assertEqual(len(payload), 118)
+        self.assertEqual(len(payload), 128)
         self.assertEqual(summary.param_version, 2)
         self.assertEqual(summary.sample_count, 500)
         self.assertEqual(summary.right_encoder_counts, -23456)

@@ -83,7 +83,11 @@ void TrialManager_ControlTick(uint32_t tick)
         gStatus.latestSample.rightPwm = gRightTrialCommand;
         gStatus.latestSample.targetSaturated = false;
         gStatus.latestSample.pwmSaturated = false;
-        Motor_SetSpeed(gLeftTrialCommand, gRightTrialCommand);
+        if ((gLeftTrialCommand == 0) && (gRightTrialCommand == 0)) {
+            Motor_Stop();
+        } else {
+            Motor_SetSpeed(gLeftTrialCommand, gRightTrialCommand);
+        }
     } else {
         LineControlOutput lineOutput = {0, 0, 0, false};
         SpeedPIOutput leftOutput;
@@ -112,7 +116,14 @@ void TrialManager_ControlTick(uint32_t tick)
         gStatus.latestSample.targetSaturated = lineOutput.targetSaturated;
         gStatus.latestSample.pwmSaturated =
             leftOutput.saturated || rightOutput.saturated;
-        Motor_SetSpeed(leftOutput.pwm, rightOutput.pwm);
+        if ((lineOutput.leftTarget == 0) &&
+            (lineOutput.rightTarget == 0)) {
+            SpeedPI_Reset(&gLeftPiState);
+            SpeedPI_Reset(&gRightPiState);
+            Motor_Stop();
+        } else {
+            Motor_SetSpeed(leftOutput.pwm, rightOutput.pwm);
+        }
     }
 
     if (gStatus.trialMode == TRIAL_MODE_LINE_FOLLOW) {
@@ -121,6 +132,7 @@ void TrialManager_ControlTick(uint32_t tick)
         ControlSample motorSample = gStatus.latestSample;
         motorSample.line.valid = true;
         motorSample.line.error = 0;
+        motorSample.line.specialPattern = false;
         TrialStats_AddSample(&motorSample);
     }
     gStatus.trialTicks++;
@@ -229,10 +241,14 @@ TrialCommandResult TrialManager_Abort(uint32_t tick)
 
 TrialCommandResult TrialManager_ClearFault(uint32_t tick)
 {
+    SafetyStatus safety;
+
     if (gStatus.state != SYSTEM_STATE_FAULT) {
         return TRIAL_COMMAND_BAD_STATE;
     }
-    if (!LineSensor_ReadSample().valid ||
+    safety = SafetyGuard_GetStatus();
+    if (((safety.fault == FAULT_LINE_LOST) &&
+         !LineSensor_ReadSample().valid) ||
         (abs(Encoder_GetLeftSpeed()) > 1) ||
         (abs(Encoder_GetRightSpeed()) > 1)) {
         return TRIAL_COMMAND_CONDITION_UNSAFE;

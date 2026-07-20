@@ -87,7 +87,7 @@ class ControlParams:
 
 @dataclass(frozen=True, slots=True)
 class TrialSummary:
-    """MCU 本地累加并作为最终评分依据的 118 字节汇总。"""
+    """MCU 本地累加并作为最终评分依据的 128 字节汇总。"""
 
     param_version: int
     sample_count: int
@@ -101,10 +101,15 @@ class TrialSummary:
     pwm_saturation_samples: int
     sign_flips: int
     control_overruns: int
+    special_pattern_samples: int
     max_abs_error: int
     approximate_p95_error: int
     max_abs_left_pwm: int
     max_abs_right_pwm: int
+    max_abs_left_target: int
+    max_abs_right_target: int
+    max_abs_left_speed: int
+    max_abs_right_speed: int
     left_encoder_counts: int
     right_encoder_counts: int
     abs_error_sum: int
@@ -118,11 +123,11 @@ class TrialSummary:
     speed_abs_error_sum: int
     speed_squared_error_sum: int
 
-    _STRUCT: ClassVar[struct.Struct] = struct.Struct("<3H2B7H4h2i10q")
+    _STRUCT: ClassVar[struct.Struct] = struct.Struct("<3H2B8H8h2i10q")
 
     @classmethod
     def from_wire(cls, payload: bytes) -> "TrialSummary":
-        """解码严格 118 字节汇总。"""
+        """解码严格 128 字节汇总。"""
 
         if len(payload) != cls._STRUCT.size:
             raise ValueError(f"TRIAL_SUMMARY payload 必须为 {cls._STRUCT.size} 字节")

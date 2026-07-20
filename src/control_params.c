@@ -87,7 +87,7 @@ ParamsValidationResult ControlParams_Validate(const ControlParams *params)
         (params->derivativeLimit > PARAM_DERIVATIVE_MAX) ||
         (params->stallPwmThreshold < 0) ||
         (params->stallPwmThreshold > PARAM_COMMISSIONING_PWM_MAX) ||
-        (params->stallSpeedThreshold < 0) ||
+        (params->stallSpeedThreshold <= 0) ||
         (params->stallSpeedThreshold > PARAM_SPEED_MAX) ||
         (params->telemetryHz > PARAM_TELEMETRY_HZ_MAX) ||
         (params->controlOverrunLimit == 0U) ||
@@ -95,7 +95,7 @@ ParamsValidationResult ControlParams_Validate(const ControlParams *params)
         return PARAMS_LIMIT_RANGE;
     }
     if ((params->baseSpeed > params->maxTargetSpeed) ||
-        (params->stallPwmThreshold > params->maxPwm)) {
+        (params->stallPwmThreshold >= params->maxPwm)) {
         return PARAMS_RELATION_INVALID;
     }
     return PARAMS_VALID;

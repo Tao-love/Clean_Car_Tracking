@@ -10,8 +10,8 @@
 
 ## Global Constraints
 
-- 实施唯一依据是 `E:\TI_work\TI_Project\git-dmc-main\docs\superpowers\specs\1-3.md`。
-- 不修改原始目录 `friend_fst_par`，只修改 `friend_fst_par - 副本\git-dmc-main`。
+- 实施唯一依据是已批准 `1-3`；仓库内摘要为 `docs/specs/1-3-summary.md`。
+- 不修改原始目录 `friend_fst_par`；修改副本最终交付为 `E:\TI_work\TI_Project\basic-1`。
 - TB6612 `STBY` 固定 5 V；统一停车必须同时清零两路 PWM 和四路方向脚。
 - 控制周期固定 10 ms，每次 trial 最多 500 tick，心跳 100 ms，通信超时 400 ms，堵转 300 ms，丢线 150 ms。
 - UART1 使用 PA8/TX、PA9/RX，首次联调为 9600 baud，遥测默认 10 Hz。

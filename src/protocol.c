@@ -127,8 +127,6 @@ static void Protocol_ConsumeByte(uint8_t value)
 
         if (receivedCrc != calculatedCrc) {
             gCounters.crcErrors++;
-        } else if (gReceiveFrame[2] != PROTOCOL_VERSION) {
-            gCounters.versionErrors++;
         } else if (gFrameHandler != 0) {
             ProtocolFrame frame;
 
@@ -140,7 +138,11 @@ static void Protocol_ConsumeByte(uint8_t value)
             if (payloadLength != 0U) {
                 (void) memcpy(frame.payload, &gReceiveFrame[9], payloadLength);
             }
-            gCounters.validFrames++;
+            if (frame.version != PROTOCOL_VERSION) {
+                gCounters.versionErrors++;
+            } else {
+                gCounters.validFrames++;
+            }
             gFrameHandler(&frame);
         }
         Protocol_ResetDecoder();

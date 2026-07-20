@@ -55,6 +55,7 @@ class TrialRunnerTests(unittest.TestCase):
 
         self.assertTrue(result.score.failed)
         self.assertIs(runner.last_safe, safe_params)
+        self.assertEqual(session.calls[-1], "set_params")
 
 
 if __name__ == "__main__":

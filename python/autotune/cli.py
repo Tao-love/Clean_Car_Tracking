@@ -80,7 +80,13 @@ def open_runtime(config: AppConfig, port_override: str | None) -> Iterator[tuple
         frame_callback=on_frame,
     )
     session = AutotuneSession(link)
-    runner = TrialRunner(session, config.score)
+    runner = TrialRunner(
+        session,
+        config.score,
+        on_result=lambda result: logger.trial(
+            result.params, result.summary, result.score, config.score
+        ),
+    )
     try:
         hello = session.hello(start_heartbeat=True)
         logger.event("hello", **asdict(hello))
@@ -119,7 +125,6 @@ def main(argv: list[str] | None = None) -> int:
                 config.params, mode=modes[args.mode],
                 left_command=args.left, right_command=args.right,
             )
-            logger.trial(result.params, result.summary, result.score, config.score)
             print(json.dumps({"summary": asdict(result.summary), "score": asdict(result.score)}, ensure_ascii=False))
         else:
             stages = AutotuneStages(runner)
@@ -129,8 +134,10 @@ def main(argv: list[str] | None = None) -> int:
                 fields = {
                     "speed_kp_left_q16": (0, args.max_q16, args.step_q16),
                     "speed_ki_left_q16": (0, args.max_q16, args.step_q16),
+                    "speed_feedforward_left_q16": (0, args.max_q16, args.step_q16),
                     "speed_kp_right_q16": (0, args.max_q16, args.step_q16),
                     "speed_ki_right_q16": (0, args.max_q16, args.step_q16),
+                    "speed_feedforward_right_q16": (0, args.max_q16, args.step_q16),
                 }
                 print(json.dumps(asdict(stages.tune_speed_pi(config.params, args.target, fields, args.rounds)), ensure_ascii=False))
             elif args.command == "tune-line":
