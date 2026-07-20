@@ -44,7 +44,6 @@ typedef enum {
     APP_STATUS_PARAM_RANGE = 6,
     APP_STATUS_BUSY = 7,
     APP_STATUS_UNSAFE = 8,
-    APP_STATUS_NOT_IMPLEMENTED = 9,
     APP_STATUS_INTERNAL = 10
 } AppStatus;
 

@@ -29,7 +29,8 @@
 - `python/autotune/`：串口、协议、会话、试验、评分、优化、日志、VOFA+ 和 CLI。
 - `python/config.example.json`：不动车的保守起点；实测后复制并填写参数，不要直接把未知参数当成已标定值。
 - `docs/protocol.md`：二进制协议与三种试验模式。
-- `docs/hardware-test-checklist.md`：必须按顺序执行的实物验收。
+- `docs/software-completion-audit.md`：1-3 要求到源码、测试和本次验收边界的逐项对应。
+- `docs/hardware-test-checklist.md`：以后烧录和接车时按顺序执行的实物验收；本次软件交付不要求执行。
 - `legacy/teammate_initial/`：不参与构建的队友旧 PID/MPU6050 参考文件。
 
 ## 电脑环境
@@ -55,7 +56,7 @@ E:\python\python.exe -m pip install -r python\requirements.txt
 powershell -ExecutionPolicy Bypass -File tools\verify.ps1
 ```
 
-该脚本执行 SysConfig、全部 Python 测试、`-Wall -Wextra -Werror` 固件构建，并确认 Flash 双槽固定在 `0x1F800`/`0x1FC00`。
+该脚本执行 SysConfig、全部 Python 测试、Python 语法检查、`-Wall -Wextra -Werror` 固件构建，并确认 Flash 双槽固定在 `0x1F800`/`0x1FC00`；`tests/firmware_host/test_core.c` 的纯 C 契约向量也参加严格交叉编译，但本次未烧录执行 ARM 目标代码。
 
 ## 首次只测通信
 
@@ -97,6 +98,6 @@ E:\python\python.exe -m autotune --port COM7 commit --version 12
 
 Python 始终独占蓝牙 COM。需要 VOFA+ 时，在配置中启用 `vofa.enabled`，然后让 VOFA+ 监听 Python 的本机 UDP FireWater 端口；不要让 VOFA+ 再打开 JDY-31 的 COM 口。VOFA+ 未运行或转发失败不会中断试验。
 
-## 实物状态
+## 软件交付与后续实物状态
 
-软件构建和离线测试结果记录在版本提交中。蓝牙、电机方向、编码器方向、实际堵转阈值、低速循线、Flash 断电回退和赛道直角仍必须由使用者按 [硬件验收清单](docs/hardware-test-checklist.md) 在实物上完成，未实测项不视为已通过。
+本次交付范围是完整代码、文档、离线测试、SysConfig 重生成、固件编译链接和 GitHub 仓库，不要求烧录或实车检验。蓝牙、电机方向、编码器方向、实际堵转阈值、低速循线、Flash 断电回退和赛道直角均保留在 [硬件验收清单](docs/hardware-test-checklist.md) 中，供以后决定接车时使用；未实测项不会被声称为实物已通过，也不阻塞本次软件完成状态。

@@ -65,6 +65,33 @@ try {
         $Objects += $Object
     }
 
+    # 纯 C 契约测试当前不能在本机执行 ARM 指令，但必须参加同等级严格交叉编译，避免测试源码失效。
+    $ContractTestSource = '.\tests\firmware_host\test_core.c'
+    $ContractTestObject = Join-Path $Output 'test_core.o'
+    & $Compiler @Common -c $ContractTestSource -o $ContractTestObject
+    if ($LASTEXITCODE -ne 0) { throw '固件纯 C 契约测试编译失败' }
+
+    # 把契约测试与对应纯逻辑模块链接为独立 ARM ELF，确保接口和运行库符号完整；该 ELF 不用于烧录。
+    $ContractFirmware = Join-Path $Output 'test_core.out'
+    $ContractObjects = @(
+        $ContractTestObject,
+        (Join-Path $Output 'crc16.o'),
+        (Join-Path $Output 'ring_buffer.o'),
+        (Join-Path $Output 'speed_pi.o'),
+        (Join-Path $Output 'line_control.o'),
+        (Join-Path $Output 'safety_guard.o'),
+        (Join-Path $Output 'trial_stats.o')
+    )
+    $ContractLinkArgs = @(
+        '@syscfg_gen/device.opt',
+        '-march=thumbv6m', '-mcpu=cortex-m0plus', '-mfloat-abi=soft',
+        '-mlittle-endian', '-mthumb', '-O2', '-gdwarf-3',
+        '-Wall', '-Wextra', '-Werror', '-Wl,--rom_model',
+        '-o', $ContractFirmware
+    ) + $ContractObjects + @('-Wl,syscfg_gen\device_linker.cmd')
+    & $Compiler @ContractLinkArgs
+    if ($LASTEXITCODE -ne 0) { throw '固件纯 C 契约测试链接失败' }
+
     $Map = Join-Path $Output 'basic-1.map'
     $Firmware = Join-Path $Output 'basic-1.out'
     $DriverLib = Join-Path $SdkRoot 'source\ti\driverlib\lib\ticlang\m0p\mspm0g1x0x_g3x0x\driverlib.a'
