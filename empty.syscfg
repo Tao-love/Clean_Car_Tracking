@@ -167,7 +167,8 @@ TIMER_CONTROL.peripheral.$assign = "TIMG0";
 
 UART_DEBUG.$name = "UART_DEBUG";
 UART_DEBUG.enableFIFO = true;
-UART_DEBUG.targetBaudRate = 115200;
+UART_DEBUG.targetBaudRate = 9600;
+UART_DEBUG.enabledInterrupts = ["RX"];
 UART_DEBUG.peripheral.$assign = "UART1";
 UART_DEBUG.peripheral.txPin.$assign = "PA8";
 UART_DEBUG.peripheral.rxPin.$assign = "PA9";

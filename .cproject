@@ -87,7 +87,7 @@
                                 <option id="com.ti.ccstudio.buildDefinitions.sysConfig.DIRECTORY_MODE.899279352" superClass="com.ti.ccstudio.buildDefinitions.sysConfig.DIRECTORY_MODE" value="com.ti.ccstudio.buildDefinitions.sysConfig.DIRECTORY_MODE.manual" valueType="enumerated"/>
                                 <option id="com.ti.ccstudio.buildDefinitions.sysConfig.OTHER_FLAGS.1038557468" superClass="com.ti.ccstudio.buildDefinitions.sysConfig.OTHER_FLAGS" valueType="stringList">
                                     <listOptionValue value="--product"/>
-                                    <listOptionValue value="E:/mspm0_sdk_2_10_00_04/.metadata/product.json"/>
+                                    <listOptionValue value="C:/ti/ti/mspm0_sdk_2_11_00_07/.metadata/product.json"/>
                                 </option>
                                 <option id="com.ti.ccstudio.buildDefinitions.sysConfig.ENABLE_RA_SETUP.897800235" superClass="com.ti.ccstudio.buildDefinitions.sysConfig.ENABLE_RA_SETUP" value="false" valueType="boolean"/>
                             </tool>
