@@ -51,6 +51,12 @@ typedef enum {
     FAULT_INTERNAL = 8
 } FaultCode;
 
+typedef enum {
+    TRIAL_MODE_LINE_FOLLOW = 0,
+    TRIAL_MODE_WHEEL_SPEED = 1,
+    TRIAL_MODE_OPEN_LOOP_PWM = 2
+} TrialMode;
+
 typedef struct {
     int32_t speedKpLeftQ16;
     int32_t speedKiLeftQ16;

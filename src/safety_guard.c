@@ -43,7 +43,7 @@ void SafetyGuard_OnValidFrame(uint32_t tick)
 }
 
 bool SafetyGuard_Evaluate(uint32_t tick, const ControlSample *sample,
-    const ControlParams *params)
+    const ControlParams *params, bool requireLine)
 {
     if ((sample == 0) || (params == 0)) {
         SafetyGuard_Stop(STOP_REASON_PARAMETER_ERROR, FAULT_INTERNAL, tick);
@@ -55,11 +55,15 @@ bool SafetyGuard_Evaluate(uint32_t tick, const ControlSample *sample,
         return true;
     }
 
-    gSafetyStatus.lineLostTicks = sample->line.valid ? 0U :
-        SafetyGuard_IncrementSaturating(gSafetyStatus.lineLostTicks);
-    if (gSafetyStatus.lineLostTicks >= SAFETY_LINE_LOST_TICKS) {
-        SafetyGuard_Stop(STOP_REASON_LINE_LOST, FAULT_LINE_LOST, tick);
-        return true;
+    if (requireLine) {
+        gSafetyStatus.lineLostTicks = sample->line.valid ? 0U :
+            SafetyGuard_IncrementSaturating(gSafetyStatus.lineLostTicks);
+        if (gSafetyStatus.lineLostTicks >= SAFETY_LINE_LOST_TICKS) {
+            SafetyGuard_Stop(STOP_REASON_LINE_LOST, FAULT_LINE_LOST, tick);
+            return true;
+        }
+    } else {
+        gSafetyStatus.lineLostTicks = 0U;
     }
 
     gSafetyStatus.leftStallTicks =

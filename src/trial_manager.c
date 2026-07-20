@@ -24,6 +24,8 @@ static SpeedPIState gLeftPiState;
 static SpeedPIState gRightPiState;
 static bool gParamsApplied;
 static bool gOverrunReportedForBoundary;
+static int16_t gLeftTrialCommand;
+static int16_t gRightTrialCommand;
 
 static void TrialManager_ResetControlState(void);
 static void TrialManager_Finish(
@@ -43,6 +45,9 @@ void TrialManager_Init(uint32_t tick, const ControlParams *flashParams)
     gStatus.state = SYSTEM_STATE_IDLE;
     gParamsApplied = false;
     gOverrunReportedForBoundary = false;
+    gStatus.trialMode = TRIAL_MODE_LINE_FOLLOW;
+    gLeftTrialCommand = 0;
+    gRightTrialCommand = 0;
 }
 
 void TrialManager_ControlTick(uint32_t tick)
@@ -70,20 +75,35 @@ void TrialManager_ControlTick(uint32_t tick)
     }
 
     params = ControlParams_GetActive();
-    {
-        LineControlOutput lineOutput =
-            LineControl_Step(&gLineState, &line, params);
-        SpeedPIOutput leftOutput = SpeedPI_Step(&gLeftPiState,
+    if (gStatus.trialMode == TRIAL_MODE_OPEN_LOOP_PWM) {
+        gStatus.latestSample.leftTarget = 0;
+        gStatus.latestSample.rightTarget = 0;
+        gStatus.latestSample.leftPwm = gLeftTrialCommand;
+        gStatus.latestSample.rightPwm = gRightTrialCommand;
+        gStatus.latestSample.targetSaturated = false;
+        gStatus.latestSample.pwmSaturated = false;
+        Motor_SetSpeed(gLeftTrialCommand, gRightTrialCommand);
+    } else {
+        LineControlOutput lineOutput = {0, 0, 0, false};
+        SpeedPIOutput leftOutput;
+        SpeedPIOutput rightOutput;
+
+        if (gStatus.trialMode == TRIAL_MODE_LINE_FOLLOW) {
+            lineOutput = LineControl_Step(&gLineState, &line, params);
+        } else {
+            lineOutput.leftTarget = gLeftTrialCommand;
+            lineOutput.rightTarget = gRightTrialCommand;
+        }
+        leftOutput = SpeedPI_Step(&gLeftPiState,
             lineOutput.leftTarget, gStatus.latestSample.leftSpeed,
             params->speedKpLeftQ16, params->speedKiLeftQ16,
             params->speedFeedforwardLeftQ16, params->speedIntegralLimit,
             params->maxPwm);
-        SpeedPIOutput rightOutput = SpeedPI_Step(&gRightPiState,
+        rightOutput = SpeedPI_Step(&gRightPiState,
             lineOutput.rightTarget, gStatus.latestSample.rightSpeed,
             params->speedKpRightQ16, params->speedKiRightQ16,
             params->speedFeedforwardRightQ16, params->speedIntegralLimit,
             params->maxPwm);
-
         gStatus.latestSample.leftTarget = lineOutput.leftTarget;
         gStatus.latestSample.rightTarget = lineOutput.rightTarget;
         gStatus.latestSample.leftPwm = leftOutput.pwm;
@@ -94,9 +114,17 @@ void TrialManager_ControlTick(uint32_t tick)
         Motor_SetSpeed(leftOutput.pwm, rightOutput.pwm);
     }
 
-    TrialStats_AddSample(&gStatus.latestSample);
+    if (gStatus.trialMode == TRIAL_MODE_LINE_FOLLOW) {
+        TrialStats_AddSample(&gStatus.latestSample);
+    } else {
+        ControlSample motorSample = gStatus.latestSample;
+        motorSample.line.valid = true;
+        motorSample.line.error = 0;
+        TrialStats_AddSample(&motorSample);
+    }
     gStatus.trialTicks++;
-    if (SafetyGuard_Evaluate(tick, &gStatus.latestSample, params)) {
+    if (SafetyGuard_Evaluate(tick, &gStatus.latestSample, params,
+            gStatus.trialMode == TRIAL_MODE_LINE_FOLLOW)) {
         SafetyStatus safety = SafetyGuard_GetStatus();
         TrialManager_Finish(
             tick, safety.stopReason, safety.fault, SYSTEM_STATE_FAULT);
@@ -152,10 +180,27 @@ TrialCommandResult TrialManager_Arm(uint16_t paramVersion)
     return TRIAL_COMMAND_OK;
 }
 
-TrialCommandResult TrialManager_Start(uint32_t tick)
+TrialCommandResult TrialManager_Start(
+    uint32_t tick, TrialMode mode, int16_t leftCommand, int16_t rightCommand)
 {
+    const ControlParams *params = ControlParams_GetActive();
+
     if (gStatus.state != SYSTEM_STATE_ARMED) {
         return TRIAL_COMMAND_BAD_STATE;
+    }
+    if ((mode < TRIAL_MODE_LINE_FOLLOW) ||
+        (mode > TRIAL_MODE_OPEN_LOOP_PWM)) {
+        return TRIAL_COMMAND_BAD_PARAMS;
+    }
+    if ((mode == TRIAL_MODE_WHEEL_SPEED) &&
+        ((abs(leftCommand) > params->maxTargetSpeed) ||
+         (abs(rightCommand) > params->maxTargetSpeed))) {
+        return TRIAL_COMMAND_BAD_PARAMS;
+    }
+    if ((mode == TRIAL_MODE_OPEN_LOOP_PWM) &&
+        ((abs(leftCommand) > params->maxPwm) ||
+         (abs(rightCommand) > params->maxPwm))) {
+        return TRIAL_COMMAND_BAD_PARAMS;
     }
     SafetyGuard_Stop(STOP_REASON_NONE, FAULT_NONE, tick);
     TrialStats_Reset(ControlParams_GetVersion(),
@@ -164,6 +209,9 @@ TrialCommandResult TrialManager_Start(uint32_t tick)
     (void) memset(&gStatus.latestSample, 0, sizeof(gStatus.latestSample));
     gStatus.trialTicks = 0U;
     gStatus.summaryReady = false;
+    gStatus.trialMode = mode;
+    gLeftTrialCommand = leftCommand;
+    gRightTrialCommand = rightCommand;
     gStatus.state = SYSTEM_STATE_RUNNING;
     return TRIAL_COMMAND_OK;
 }

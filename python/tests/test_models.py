@@ -50,13 +50,13 @@ class TrialSummaryWireTests(unittest.TestCase):
         values = [
             2, 500, 500, 2, 0, 0, 3, 3, 4, 5, 6, 7, 3500, 3000,
             400, 399, 12345, -23456,
-            100, 200, -300, 400, -500, 600, 700, 800,
+            100, 200, -300, 400, -500, 600, 700, 800, 900, 1000,
         ]
         payload = TrialSummary.pack_test_vector(values)
 
         summary = TrialSummary.from_wire(payload)
 
-        self.assertEqual(len(payload), 102)
+        self.assertEqual(len(payload), 118)
         self.assertEqual(summary.param_version, 2)
         self.assertEqual(summary.sample_count, 500)
         self.assertEqual(summary.right_encoder_counts, -23456)

@@ -81,6 +81,21 @@ void TrialStats_AddSample(const ControlSample *sample)
         gSummary.leftAbsPwmSum, TrialStats_AbsI16(sample->leftPwm));
     gSummary.rightAbsPwmSum = TrialStats_AddSatI64(
         gSummary.rightAbsPwmSum, TrialStats_AbsI16(sample->rightPwm));
+    {
+        int32_t leftSpeedError =
+            (int32_t) sample->leftTarget - sample->leftSpeed;
+        int32_t rightSpeedError =
+            (int32_t) sample->rightTarget - sample->rightSpeed;
+        int64_t absoluteError =
+            ((leftSpeedError < 0) ? -leftSpeedError : leftSpeedError) +
+            ((rightSpeedError < 0) ? -rightSpeedError : rightSpeedError);
+        int64_t squaredError = ((int64_t) leftSpeedError * leftSpeedError) +
+            ((int64_t) rightSpeedError * rightSpeedError);
+        gSummary.speedAbsErrorSum = TrialStats_AddSatI64(
+            gSummary.speedAbsErrorSum, absoluteError);
+        gSummary.speedSquaredErrorSum = TrialStats_AddSatI64(
+            gSummary.speedSquaredErrorSum, squaredError);
+    }
     if (TrialStats_AbsI16(sample->leftPwm) > gSummary.maxAbsLeftPwm) {
         gSummary.maxAbsLeftPwm = TrialStats_AbsI16(sample->leftPwm);
     }

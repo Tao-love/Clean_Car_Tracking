@@ -43,7 +43,7 @@ void SafetyGuard_OnValidFrame(uint32_t tick);
 
 /* 用途：执行一次本地联锁判定；返回 true 表示本次已触发故障停车。 */
 bool SafetyGuard_Evaluate(uint32_t tick, const ControlSample *sample,
-    const ControlParams *params);
+    const ControlParams *params, bool requireLine);
 
 /* 用途：记录主循环漏执行；连续达到参数限值时本地故障停车。 */
 bool SafetyGuard_ReportOverrun(

@@ -33,6 +33,7 @@ typedef struct {
     SystemState state;
     uint16_t paramVersion;
     uint16_t trialTicks;
+    TrialMode trialMode;
     uint32_t controlTick;
     uint32_t controlOverruns;
     SafetyStatus safety;
@@ -59,7 +60,8 @@ ParamsValidationResult TrialManager_StageParams(const ControlParams *params);
 TrialCommandResult TrialManager_Arm(uint16_t paramVersion);
 
 /* 用途：ARMED→RUNNING，开始独立最多 500 tick 试验。 */
-TrialCommandResult TrialManager_Start(uint32_t tick);
+TrialCommandResult TrialManager_Start(
+    uint32_t tick, TrialMode mode, int16_t leftCommand, int16_t rightCommand);
 
 /* 用途：人工提前结束 RUNNING，统一停车并生成汇总。 */
 TrialCommandResult TrialManager_Abort(uint32_t tick);

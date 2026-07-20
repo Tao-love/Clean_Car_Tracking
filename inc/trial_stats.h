@@ -41,6 +41,8 @@ typedef struct {
     int64_t rightSpeedSum;
     int64_t leftAbsPwmSum;
     int64_t rightAbsPwmSum;
+    int64_t speedAbsErrorSum;
+    int64_t speedSquaredErrorSum;
     StopReason stopReason;
     FaultCode fault;
     bool arithmeticSaturated;

@@ -21,7 +21,7 @@
 #define FIRMWARE_VERSION_PATCH (0U)
 #define RESPONSE_CACHE_SIZE    (8U)
 #define RESPONSE_CACHE_PAYLOAD (24U)
-#define SUMMARY_WIRE_SIZE      (108U)
+#define SUMMARY_WIRE_SIZE      (118U)
 
 #define CAPABILITY_RUNTIME_PARAMS (1UL << 0)
 #define CAPABILITY_TRIAL_5_SECONDS (1UL << 1)
@@ -216,9 +216,19 @@ static void AppProtocol_HandleSessionCommand(const ProtocolFrame *frame)
             }
             break;
         case PROTOCOL_MSG_START_TRIAL:
-            if (frame->payloadLength == 4U) {
+            if ((frame->payloadLength == 4U) ||
+                (frame->payloadLength == 9U)) {
+                TrialMode mode = TRIAL_MODE_LINE_FOLLOW;
+                int16_t leftCommand = 0;
+                int16_t rightCommand = 0;
+                if (frame->payloadLength == 9U) {
+                    mode = (TrialMode) frame->payload[4];
+                    leftCommand = (int16_t) AppProtocol_ReadU16(&frame->payload[5]);
+                    rightCommand = (int16_t) AppProtocol_ReadU16(&frame->payload[7]);
+                }
                 AppStatus status = AppProtocol_MapTrialResult(
-                    TrialManager_Start(gControlTick));
+                    TrialManager_Start(
+                        gControlTick, mode, leftCommand, rightCommand));
                 if (status == APP_STATUS_OK) {
                     AppProtocol_SendAck(frame, status);
                 } else {
@@ -427,6 +437,8 @@ static void AppProtocol_SendSummary(void)
     PUT_I64(summary.rightSpeedSum);
     PUT_I64(summary.leftAbsPwmSum);
     PUT_I64(summary.rightAbsPwmSum);
+    PUT_I64(summary.speedAbsErrorSum);
+    PUT_I64(summary.speedSquaredErrorSum);
 #undef PUT_U16
 #undef PUT_I16
 #undef PUT_I32
