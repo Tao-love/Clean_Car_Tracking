@@ -27,7 +27,8 @@ typedef enum {
 } ParamsValidationResult;
 
 /* 用途：加载保守默认值（baseSpeed=0）并清空 pending；不允许 ISR 调用。 */
-void ControlParams_Init(const ControlParams *flashParams);
+void ControlParams_Init(
+    const ControlParams *flashParams, uint16_t flashParamVersion);
 
 /* 用途：只校验完整参数结构；无副作用，ISR 不可调用。 */
 ParamsValidationResult ControlParams_Validate(const ControlParams *params);

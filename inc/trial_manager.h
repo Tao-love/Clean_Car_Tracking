@@ -42,7 +42,8 @@ typedef struct {
 } TrialManagerStatus;
 
 /* 用途：初始化全部控制状态，执行 BOOT_SAFE 停车后进入 IDLE；禁止 ISR。 */
-void TrialManager_Init(uint32_t tick, const ControlParams *flashParams);
+void TrialManager_Init(uint32_t tick, const ControlParams *flashParams,
+    uint16_t flashParamVersion);
 
 /* 用途：执行一个且仅一个 10 ms 边界；RUNNING 时更新双闭环、安全和统计。 */
 void TrialManager_ControlTick(uint32_t tick);
@@ -80,6 +81,13 @@ void TrialManager_MarkSummaryQueued(void);
 
 /* 用途：返回并清除“本边界已应用新参数”通知，用于延迟 SET_PARAMS ACK。 */
 bool TrialManager_ConsumeParamsApplied(void);
+
+/* 用途：仅在 IDLE 且版本匹配时统一停车并进入 FLASH_WRITE。 */
+TrialCommandResult TrialManager_BeginFlashWrite(
+    uint32_t tick, uint16_t paramVersion);
+
+/* 用途：Flash 读回校验后离开 FLASH_WRITE；成功回 IDLE，失败锁存 FLASH 故障。 */
+void TrialManager_EndFlashWrite(uint32_t tick, bool success);
 
 #endif /* TRIAL_MANAGER_H */
 // ----- AI

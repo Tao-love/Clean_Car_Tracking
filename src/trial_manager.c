@@ -31,14 +31,15 @@ static void TrialManager_ResetControlState(void);
 static void TrialManager_Finish(
     uint32_t tick, StopReason reason, FaultCode fault, SystemState state);
 
-void TrialManager_Init(uint32_t tick, const ControlParams *flashParams)
+void TrialManager_Init(uint32_t tick, const ControlParams *flashParams,
+    uint16_t flashParamVersion)
 {
     (void) memset(&gStatus, 0, sizeof(gStatus));
     (void) memset(&gFinishedSummary, 0, sizeof(gFinishedSummary));
     gStatus.state = SYSTEM_STATE_BOOT_SAFE;
     gStatus.controlTick = tick;
     Encoder_Init();
-    ControlParams_Init(flashParams);
+    ControlParams_Init(flashParams, flashParamVersion);
     TrialManager_ResetControlState();
     SafetyGuard_Init(TrialManager_ResetControlState, tick);
     gStatus.safety = SafetyGuard_GetStatus();
@@ -272,6 +273,36 @@ bool TrialManager_ConsumeParamsApplied(void)
     bool result = gParamsApplied;
     gParamsApplied = false;
     return result;
+}
+
+TrialCommandResult TrialManager_BeginFlashWrite(
+    uint32_t tick, uint16_t paramVersion)
+{
+    if (gStatus.state != SYSTEM_STATE_IDLE) {
+        return TRIAL_COMMAND_BAD_STATE;
+    }
+    if (ControlParams_HasPending() ||
+        (paramVersion != ControlParams_GetVersion())) {
+        return TRIAL_COMMAND_BAD_VERSION;
+    }
+    SafetyGuard_Stop(STOP_REASON_NONE, FAULT_NONE, tick);
+    gStatus.state = SYSTEM_STATE_FLASH_WRITE;
+    return TRIAL_COMMAND_OK;
+}
+
+void TrialManager_EndFlashWrite(uint32_t tick, bool success)
+{
+    if (gStatus.state != SYSTEM_STATE_FLASH_WRITE) {
+        return;
+    }
+    if (success) {
+        SafetyGuard_Stop(STOP_REASON_NONE, FAULT_NONE, tick);
+        gStatus.state = SYSTEM_STATE_IDLE;
+    } else {
+        SafetyGuard_Stop(STOP_REASON_FLASH_ERROR, FAULT_FLASH, tick);
+        gStatus.state = SYSTEM_STATE_FAULT;
+    }
+    gStatus.safety = SafetyGuard_GetStatus();
 }
 
 static void TrialManager_ResetControlState(void)

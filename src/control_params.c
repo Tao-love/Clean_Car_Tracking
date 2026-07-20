@@ -34,7 +34,8 @@ static void ControlParams_WriteI32(uint8_t *destination, int32_t value);
 static void ControlParams_WriteI16(uint8_t *destination, int16_t value);
 static void ControlParams_WriteU16(uint8_t *destination, uint16_t value);
 
-void ControlParams_Init(const ControlParams *flashParams)
+void ControlParams_Init(
+    const ControlParams *flashParams, uint16_t flashParamVersion)
 {
     if ((flashParams != 0) &&
         (ControlParams_Validate(flashParams) == PARAMS_VALID)) {
@@ -44,7 +45,7 @@ void ControlParams_Init(const ControlParams *flashParams)
     }
     (void) memset(&gPendingParams, 0, sizeof(gPendingParams));
     gHasPending = false;
-    gParamVersion = 0U;
+    gParamVersion = (flashParams != 0) ? flashParamVersion : 0U;
 }
 
 ParamsValidationResult ControlParams_Validate(const ControlParams *params)

@@ -14,6 +14,7 @@
 
 #include "ti_msp_dl_config.h"
 #include "app_protocol.h"
+#include "flash_params.h"
 #include "main.h"
 #include "motor.h"
 #include "protocol.h"
@@ -31,12 +32,19 @@ static uint32_t App_CreateSessionId(void);
 int main(void)
 {
     uint32_t lastProcessedTick = 0U;
+    ControlParams flashParams;
+    uint16_t flashParamVersion = 0U;
+    uint32_t flashGeneration = 0U;
+    bool hasFlashParams;
 
     /* 按 SysConfig 生成配置初始化时钟、GPIO、PWM、UART 和定时器；此时 PWM 默认比较值为 0。 */
     SYSCFG_DL_init();
     /* Motor_Init 的第一个硬件动作是同时清零两路 PWM 和四个方向脚。 */
     Motor_Init();
-    TrialManager_Init(0U, 0);
+    hasFlashParams = FlashParams_LoadLatest(
+        &flashParams, &flashParamVersion, &flashGeneration);
+    TrialManager_Init(0U, hasFlashParams ? &flashParams : 0,
+        hasFlashParams ? flashParamVersion : 0U);
     UART_Transport_Init();
     AppProtocol_Init(App_CreateSessionId());
     Protocol_Init(AppProtocol_HandleFrame);

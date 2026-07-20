@@ -11,6 +11,7 @@
 #include "app_protocol.h"
 #include "autotune_types.h"
 #include "control_params.h"
+#include "flash_params.h"
 #include "main.h"
 #include "protocol.h"
 #include "trial_manager.h"
@@ -274,7 +275,28 @@ static void AppProtocol_HandleSessionCommand(const ProtocolFrame *frame)
             }
             break;
         case PROTOCOL_MSG_COMMIT_PARAMS:
-            AppProtocol_SendNack(frame, APP_STATUS_NOT_IMPLEMENTED);
+            if (frame->payloadLength == 6U) {
+                uint16_t version = AppProtocol_ReadU16(&frame->payload[4]);
+                TrialCommandResult begin = TrialManager_BeginFlashWrite(
+                    gControlTick, version);
+                if (begin == TRIAL_COMMAND_OK) {
+                    FlashParamsResult flashResult = FlashParams_Commit(
+                        ControlParams_GetActive(), version);
+                    bool success = (flashResult == FLASH_PARAMS_OK) ||
+                        (flashResult == FLASH_PARAMS_ALREADY_CURRENT);
+                    TrialManager_EndFlashWrite(gControlTick, success);
+                    if (success) {
+                        AppProtocol_SendAck(frame, APP_STATUS_OK);
+                    } else {
+                        AppProtocol_SendNack(frame, APP_STATUS_INTERNAL);
+                    }
+                } else {
+                    AppProtocol_SendNack(
+                        frame, AppProtocol_MapTrialResult(begin));
+                }
+            } else {
+                AppProtocol_SendNack(frame, APP_STATUS_BAD_PAYLOAD);
+            }
             break;
         default:
             AppProtocol_SendNack(frame, APP_STATUS_UNKNOWN_MESSAGE);
