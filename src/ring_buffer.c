@@ -73,6 +73,14 @@ uint16_t RingBuffer_Count(const RingBuffer *buffer)
     return (uint16_t) (buffer->capacity - tail + head);
 }
 
+uint16_t RingBuffer_Free(const RingBuffer *buffer)
+{
+    if ((buffer == 0) || (buffer->capacity < 2U)) {
+        return 0U;
+    }
+    return (uint16_t) (buffer->capacity - 1U - RingBuffer_Count(buffer));
+}
+
 bool RingBuffer_IsEmpty(const RingBuffer *buffer)
 {
     return RingBuffer_Count(buffer) == 0U;

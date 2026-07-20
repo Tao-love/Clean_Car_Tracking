@@ -47,6 +47,9 @@ bool RingBuffer_Pop(RingBuffer *buffer, uint8_t *value);
 /* 用途：返回当前可读字节数；只读，ISR 可用。 */
 uint16_t RingBuffer_Count(const RingBuffer *buffer);
 
+/* 用途：返回不覆盖旧数据时还能写入的字节数；只读，ISR 可用。 */
+uint16_t RingBuffer_Free(const RingBuffer *buffer);
+
 /* 用途：检查队列是否为空；只读，ISR 可用。 */
 bool RingBuffer_IsEmpty(const RingBuffer *buffer);
 

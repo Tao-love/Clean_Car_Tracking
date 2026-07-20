@@ -60,6 +60,19 @@ class Frame:
             raise ValueError("version 必须是 0..255")
 
 
+@dataclass(frozen=True, slots=True)
+class HelloAck:
+    """MCU 对 HELLO 的固定布局应答。"""
+
+    acknowledged_type: int
+    status: int
+    param_version: int
+    session_id: int
+    protocol_version: int
+    firmware_version: tuple[int, int, int]
+    capabilities: int
+
+
 def crc16_ccitt_false(data: bytes | bytearray | memoryview) -> int:
     """CRC-16/CCITT-FALSE：poly=0x1021, init=0xFFFF, xorout=0。"""
 
@@ -85,6 +98,22 @@ def encode_frame(frame: Frame) -> bytes:
     body += len(payload).to_bytes(2, "little")
     body += payload
     return MAGIC + body + crc16_ccitt_false(body).to_bytes(2, "little")
+
+
+def decode_hello_ack(payload: bytes) -> HelloAck:
+    """解码 16 字节 HELLO ACK；长度不符时立即拒绝。"""
+
+    if len(payload) != 16:
+        raise ValueError("HELLO ACK payload 必须为 16 字节")
+    return HelloAck(
+        acknowledged_type=payload[0],
+        status=payload[1],
+        param_version=int.from_bytes(payload[2:4], "little"),
+        session_id=int.from_bytes(payload[4:8], "little"),
+        protocol_version=payload[8],
+        firmware_version=(payload[9], payload[10], payload[11]),
+        capabilities=int.from_bytes(payload[12:16], "little"),
+    )
 
 
 class FrameDecoder:

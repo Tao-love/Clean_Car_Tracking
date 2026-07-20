@@ -1,8 +1,14 @@
+// ----- AI
+/*
+ * 应用调度器对外状态。
+ * 当前只暴露 10 ms 单调 tick；ISR 只递增，主循环不清零它。
+ */
 #ifndef MAIN_H
 #define MAIN_H
 
-#include <stdbool.h>
+#include <stdint.h>
 
-extern volatile bool gControlFlag;
+extern volatile uint32_t gControlTick;
 
 #endif /* MAIN_H */
+// ----- AI

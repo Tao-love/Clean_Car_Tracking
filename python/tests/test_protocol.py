@@ -10,6 +10,7 @@ from autotune.protocol import (
     FrameDecoder,
     MessageType,
     crc16_ccitt_false,
+    decode_hello_ack,
     encode_frame,
 )
 
@@ -82,6 +83,21 @@ class FrameCodecTests(unittest.TestCase):
         )
         with self.assertRaises(ValueError):
             encode_frame(frame)
+
+    def test_hello_ack_has_stable_cross_language_layout(self) -> None:
+        payload = bytes.fromhex(
+            "01 00 34 12 78 56 34 12 01 01 00 00 3F 00 00 00"
+        )
+
+        hello = decode_hello_ack(payload)
+
+        self.assertEqual(hello.acknowledged_type, MessageType.HELLO)
+        self.assertEqual(hello.status, 0)
+        self.assertEqual(hello.param_version, 0x1234)
+        self.assertEqual(hello.session_id, 0x12345678)
+        self.assertEqual(hello.protocol_version, 1)
+        self.assertEqual(hello.firmware_version, (1, 0, 0))
+        self.assertEqual(hello.capabilities, 0x3F)
 
 
 if __name__ == "__main__":
