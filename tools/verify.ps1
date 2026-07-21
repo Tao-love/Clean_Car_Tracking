@@ -1,6 +1,6 @@
 # ----- AI
 <#
-basic-1 完整离线验证。
+1_USB 完整离线验证。
 
 职责：重生成 SysConfig，运行 Python 测试，使用 TI Arm Clang 严格编译/链接所有固件源码，
 并验证 Flash 双槽的绝对地址。脚本不烧录、不打开 COM 口、不启动电机。
@@ -92,8 +92,8 @@ try {
     & $Compiler @ContractLinkArgs
     if ($LASTEXITCODE -ne 0) { throw '固件纯 C 契约测试链接失败' }
 
-    $Map = Join-Path $Output 'basic-1.map'
-    $Firmware = Join-Path $Output 'basic-1.out'
+    $Map = Join-Path $Output '1_USB.map'
+    $Firmware = Join-Path $Output '1_USB.out'
     $DriverLib = Join-Path $SdkRoot 'source\ti\driverlib\lib\ticlang\m0p\mspm0g1x0x_g3x0x\driverlib.a'
     $LinkArgs = @(
         '@syscfg_gen/device.opt',
