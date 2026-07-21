@@ -29,6 +29,7 @@
 - `python/autotune/`：串口、协议、会话、试验、评分、优化、日志、VOFA+ 和 CLI。
 - `python/config.example.json`：不动车的保守起点；实测后复制并填写参数，不要直接把未知参数当成已标定值。
 - `docs/protocol.md`：二进制协议与三种试验模式。
+- `docs/specs/1-3.md`：已批准的最终方案原文；`1-3-summary.md` 是便于快速阅读的摘要。
 - `docs/software-completion-audit.md`：1-3 要求到源码、测试和本次验收边界的逐项对应。
 - `docs/hardware-test-checklist.md`：以后烧录和接车时按顺序执行的实物验收；本次软件交付不要求执行。
 - `legacy/teammate_initial/`：不参与构建的队友旧 PID/MPU6050 参考文件。
