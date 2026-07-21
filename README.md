@@ -34,6 +34,18 @@
 - `docs/hardware-test-checklist.md`：以后烧录和接车时按顺序执行的实物验收；本次软件交付不要求执行。
 - `legacy/teammate_initial/`：不参与构建的队友旧 PID/MPU6050 参考文件。
 
+## USB 直烧（CH340 UART BSL）
+
+板载 USB 转串口在本电脑当前显示为 `USB-SERIAL CH340 (COM14)`；它是下载口，JDY-31 的蓝牙 COM 口不是下载口。
+
+1. 车轮悬空或断开电机主电源，连接普通 USB 数据线。
+2. 在设备管理器确认 `USB-SERIAL CH340 (COM14)`；COM 号变动时以当前 CH340 项为准。
+3. 在 CCS 导入并选择 `1_USB`，执行 **Project → Clean** 后再执行 **Project → Build Project**，确认生成 `Debug/1_USB.out`。
+4. 在 CCS 选择 `targetConfigs/MSPM0G3507.ccxml` 的 `UARTConnection`，按客服提供的 BOOT/RESET 时序让板子进入 BSL，再选择 CH340 的 COM14 下载。
+5. 若 CCS 的下载窗口只接受 Intel HEX，运行 `powershell -ExecutionPolicy Bypass -File tools\export_usb_hex.ps1`，选择 `Debug/1_USB.hex`。
+
+UART BSL 仅用于下载；它不能像 XDS110 一样提供断点、单步和实时内存查看。若连接失败，先检查 USB 数据线、COM 端口是否被其他程序占用，以及客服给出的 BOOT/RESET 时序。
+
 ## 电脑环境
 
 - CCS / TI Arm Clang
