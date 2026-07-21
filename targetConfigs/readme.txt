@@ -1,3 +1,5 @@
+本目录的 `MSPM0G3507.ccxml` 是板载 CH340 的 UART BSL 目标配置。CCS 下载时选择设备管理器中显示的 `USB-SERIAL CH340 (COM14)`；不要选择 JDY-31 蓝牙 COM 口，也不要选择 XDS110。
+
 The 'targetConfigs' folder contains target-configuration (.ccxml) files, automatically generated based
 on the device and connection settings specified in your project on the Properties > General page.
 
