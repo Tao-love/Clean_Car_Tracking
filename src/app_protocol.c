@@ -233,7 +233,8 @@ static void AppProtocol_HandleSessionCommand(const ProtocolFrame *frame)
                 }
                 AppStatus status = AppProtocol_MapTrialResult(
                     TrialManager_Start(
-                        gControlTick, mode, leftCommand, rightCommand));
+                        gControlTick, mode, leftCommand, rightCommand,
+                        TRIAL_START_SOURCE_BLUETOOTH));
                 if (status == APP_STATUS_OK) {
                     AppProtocol_SendAck(frame, status);
                 } else {

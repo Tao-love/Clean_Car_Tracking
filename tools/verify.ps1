@@ -79,6 +79,7 @@ try {
         (Join-Path $Output 'ring_buffer.o'),
         (Join-Path $Output 'speed_pi.o'),
         (Join-Path $Output 'line_control.o'),
+        (Join-Path $Output 'key_start.o'),
         (Join-Path $Output 'safety_guard.o'),
         (Join-Path $Output 'trial_stats.o')
     )

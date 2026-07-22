@@ -12,6 +12,7 @@
 
 #include "autotune_types.h"
 #include "crc16.h"
+#include "key_start.h"
 #include "line_control.h"
 #include "ring_buffer.h"
 #include "safety_guard.h"
@@ -179,6 +180,22 @@ static int Test_LineControl(void)
     return 0;
 }
 
+static int Test_KeyStart(void)
+{
+    KeyStartState state;
+
+    KeyStart_Init(&state);
+    if (KeyStart_OnSample(&state, false) ||
+        !KeyStart_OnSample(&state, true) ||
+        KeyStart_OnSample(&state, true) ||
+        KeyStart_OnSample(&state, true) ||
+        KeyStart_OnSample(&state, false) ||
+        !KeyStart_OnSample(&state, true)) {
+        return 35;
+    }
+    return 0;
+}
+
 static int Test_SafetyGuard(void)
 {
     ControlParams params = {0};
@@ -195,8 +212,8 @@ static int Test_SafetyGuard(void)
     gControlResetCalls = 0U;
     SafetyGuard_Init(Test_ResetControl, 0U);
     SafetyGuard_BeginTrial(0U);
-    if (SafetyGuard_Evaluate(39U, &sample, &params, true) ||
-        !SafetyGuard_Evaluate(40U, &sample, &params, true)) {
+    if (SafetyGuard_Evaluate(39U, &sample, &params, true, true) ||
+        !SafetyGuard_Evaluate(40U, &sample, &params, true, true)) {
         return 40;
     }
     status = SafetyGuard_GetStatus();
@@ -207,14 +224,22 @@ static int Test_SafetyGuard(void)
 
     SafetyGuard_Init(Test_ResetControl, 0U);
     SafetyGuard_BeginTrial(0U);
+    sample.line.valid = true;
+    if (SafetyGuard_Evaluate(40U, &sample, &params, true, false) ||
+        (SafetyGuard_GetStatus().fault != FAULT_NONE)) {
+        return 47;
+    }
+
+    SafetyGuard_Init(Test_ResetControl, 0U);
+    SafetyGuard_BeginTrial(0U);
     sample.line.valid = false;
     for (tick = 1U; tick < SAFETY_LINE_LOST_TICKS; tick++) {
-        if (SafetyGuard_Evaluate(tick, &sample, &params, true)) {
+        if (SafetyGuard_Evaluate(tick, &sample, &params, true, true)) {
             return 42;
         }
     }
     if (!SafetyGuard_Evaluate(
-            SAFETY_LINE_LOST_TICKS, &sample, &params, true) ||
+            SAFETY_LINE_LOST_TICKS, &sample, &params, true, true) ||
         (SafetyGuard_GetStatus().fault != FAULT_LINE_LOST)) {
         return 43;
     }
@@ -225,11 +250,11 @@ static int Test_SafetyGuard(void)
     sample.leftPwm = 101;
     sample.leftSpeed = 0;
     for (tick = 1U; tick < SAFETY_STALL_TICKS; tick++) {
-        if (SafetyGuard_Evaluate(tick, &sample, &params, true)) {
+        if (SafetyGuard_Evaluate(tick, &sample, &params, true, true)) {
             return 44;
         }
     }
-    if (!SafetyGuard_Evaluate(SAFETY_STALL_TICKS, &sample, &params, true) ||
+    if (!SafetyGuard_Evaluate(SAFETY_STALL_TICKS, &sample, &params, true, true) ||
         (SafetyGuard_GetStatus().fault != FAULT_STALL_LEFT)) {
         return 45;
     }
@@ -308,6 +333,10 @@ int main(void)
         return result;
     }
     result = Test_LineControl();
+    if (result != 0) {
+        return result;
+    }
+    result = Test_KeyStart();
     if (result != 0) {
         return result;
     }

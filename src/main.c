@@ -14,7 +14,9 @@
 
 #include "ti_msp_dl_config.h"
 #include "app_protocol.h"
+#include "control_params.h"
 #include "flash_params.h"
+#include "key_start.h"
 #include "main.h"
 #include "motor.h"
 #include "protocol.h"
@@ -28,6 +30,8 @@
 volatile uint32_t gControlTick = 0U;
 
 static uint32_t App_CreateSessionId(void);
+static void App_StartKey1Trial(uint32_t tick);
+static KeyStartState gKey1StartState;
 
 int main(void)
 {
@@ -45,6 +49,7 @@ int main(void)
         &flashParams, &flashParamVersion, &flashGeneration);
     TrialManager_Init(0U, hasFlashParams ? &flashParams : 0,
         hasFlashParams ? flashParamVersion : 0U);
+    KeyStart_Init(&gKey1StartState);
     UART_Transport_Init();
     AppProtocol_Init(App_CreateSessionId());
     Protocol_Init(AppProtocol_HandleFrame);
@@ -69,11 +74,29 @@ int main(void)
                 TrialManager_ReportOverrun(currentTick,
                     (missed > UINT16_MAX) ? UINT16_MAX : (uint16_t) missed);
             }
+            App_StartKey1Trial(currentTick);
             TrialManager_ControlTick(currentTick);
             AppProtocol_OnControlBoundary(currentTick);
             lastProcessedTick = currentTick;
         }
     }
+}
+
+/* KEY1 为上拉输入：PA23 读到低电平表示按下。
+ * 只在按下沿请求一次；TrialManager_Arm 仅允许 IDLE，因此运行中不会重启。 */
+static void App_StartKey1Trial(uint32_t tick)
+{
+    bool key1Pressed = DL_GPIO_readPins(GPIO_KEYS_KEY1_PORT,
+        GPIO_KEYS_KEY1_PIN) == 0U;
+
+    if (!KeyStart_OnSample(&gKey1StartState, key1Pressed)) {
+        return;
+    }
+    if (TrialManager_Arm(ControlParams_GetVersion()) != TRIAL_COMMAND_OK) {
+        return;
+    }
+    (void) TrialManager_Start(tick, TRIAL_MODE_LINE_FOLLOW, 0, 0,
+        TRIAL_START_SOURCE_KEY1);
 }
 
 static uint32_t App_CreateSessionId(void)

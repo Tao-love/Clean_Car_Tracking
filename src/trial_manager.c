@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "adc.h"
+#include "gray_sensor.h"
 #include "autotune_types.h"
 #include "control_params.h"
 #include "encoder.h"
@@ -47,6 +47,7 @@ void TrialManager_Init(uint32_t tick, const ControlParams *flashParams,
     gParamsApplied = false;
     gOverrunReportedForBoundary = false;
     gStatus.trialMode = TRIAL_MODE_LINE_FOLLOW;
+    gStatus.trialStartSource = TRIAL_START_SOURCE_BLUETOOTH;
     gLeftTrialCommand = 0;
     gRightTrialCommand = 0;
 }
@@ -137,7 +138,8 @@ void TrialManager_ControlTick(uint32_t tick)
     }
     gStatus.trialTicks++;
     if (SafetyGuard_Evaluate(tick, &gStatus.latestSample, params,
-            gStatus.trialMode == TRIAL_MODE_LINE_FOLLOW)) {
+            gStatus.trialMode == TRIAL_MODE_LINE_FOLLOW,
+            gStatus.trialStartSource == TRIAL_START_SOURCE_BLUETOOTH)) {
         SafetyStatus safety = SafetyGuard_GetStatus();
         TrialManager_Finish(
             tick, safety.stopReason, safety.fault, SYSTEM_STATE_FAULT);
@@ -194,7 +196,8 @@ TrialCommandResult TrialManager_Arm(uint16_t paramVersion)
 }
 
 TrialCommandResult TrialManager_Start(
-    uint32_t tick, TrialMode mode, int16_t leftCommand, int16_t rightCommand)
+    uint32_t tick, TrialMode mode, int16_t leftCommand, int16_t rightCommand,
+    TrialStartSource source)
 {
     const ControlParams *params = ControlParams_GetActive();
 
@@ -203,6 +206,10 @@ TrialCommandResult TrialManager_Start(
     }
     if ((mode < TRIAL_MODE_LINE_FOLLOW) ||
         (mode > TRIAL_MODE_OPEN_LOOP_PWM)) {
+        return TRIAL_COMMAND_BAD_PARAMS;
+    }
+    if ((source != TRIAL_START_SOURCE_BLUETOOTH) &&
+        (source != TRIAL_START_SOURCE_KEY1)) {
         return TRIAL_COMMAND_BAD_PARAMS;
     }
     if ((mode == TRIAL_MODE_WHEEL_SPEED) &&
@@ -223,6 +230,7 @@ TrialCommandResult TrialManager_Start(
     gStatus.trialTicks = 0U;
     gStatus.summaryReady = false;
     gStatus.trialMode = mode;
+    gStatus.trialStartSource = source;
     gLeftTrialCommand = leftCommand;
     gRightTrialCommand = rightCommand;
     gStatus.state = SYSTEM_STATE_RUNNING;

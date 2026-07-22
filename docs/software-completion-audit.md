@@ -17,7 +17,7 @@
 | STBY 固定 5 V 条件下统一停车 | `src/motor.c`、`src/safety_guard.c` | 源码审计；严格编译 | 软件完成；引脚实测豁免 |
 | 400 ms 通信、150 ms 丢线、300 ms 堵转、超期联锁 | `src/safety_guard.c`、`src/trial_manager.c` | 源码审计；严格编译 | 软件完成；实车触发测试豁免 |
 | 左右独立速度 PI、前馈、条件积分抗饱和 | `src/speed_pi.c`、`src/trial_manager.c` | 严格编译；上位机参数模型测试 | 软件完成 |
-| 八路加权中心、循线 PD、D 低通与限幅 | `src/adc.c`、`src/line_control.c` | 严格编译；权重和边界源码审计 | 软件完成 |
+| 八路加权中心、循线 PD、D 低通与限幅 | `src/gray_sensor.c`、`src/line_control.c` | 严格编译；权重和边界源码审计 | 软件完成 |
 | LINE_FOLLOW、WHEEL_SPEED、OPEN_LOOP_PWM 三种受限试验 | `src/trial_manager.c`、`src/app_protocol.c`、`python/autotune/trial.py` | `test_trial.py`；严格编译 | 软件完成 |
 | 本地统计、P95、可靠汇总、10 Hz 遥测 | `src/trial_stats.c`、`src/app_protocol.c`、`python/autotune/models.py` | `test_models.py`；严格编译 | 软件完成 |
 | Python 独占 COM、心跳、有限重试、失败暂停、last-safe | `python/autotune/link.py`、`session.py`、`trial.py` | `test_link.py`、`test_session.py`、`test_trial.py` | 软件完成 |

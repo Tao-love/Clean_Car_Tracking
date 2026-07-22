@@ -129,7 +129,7 @@
 
 **Files:**
 - Create: `inc/speed_pi.h`, `src/speed_pi.c`, `inc/line_control.h`, `src/line_control.c`
-- Modify: `inc/adc.h`, `src/adc.c`, `inc/encoder.h`, `src/encoder.c`, `src/safety_guard.c`, `src/trial_manager.c`, `src/main.c`
+- Modify: `inc/gray_sensor.h`, `src/gray_sensor.c`, `inc/encoder.h`, `src/encoder.c`, `src/safety_guard.c`, `src/trial_manager.c`, `src/main.c`
 - Retire: `inc/pid.h`, `src/pid.c` 不再进入构建
 - Test: `tests/firmware_host/test_core.c`
 

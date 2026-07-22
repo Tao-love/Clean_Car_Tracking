@@ -41,9 +41,9 @@ void SafetyGuard_BeginTrial(uint32_t tick);
 /* 用途：仅对长度和 CRC 正确的完整帧刷新心跳 tick。 */
 void SafetyGuard_OnValidFrame(uint32_t tick);
 
-/* 用途：执行一次本地联锁判定；返回 true 表示本次已触发故障停车。 */
+/* 用途：执行一次本地联锁判定；requireCommHeartbeat=false 时跳过通信超时，其余联锁不变。 */
 bool SafetyGuard_Evaluate(uint32_t tick, const ControlSample *sample,
-    const ControlParams *params, bool requireLine);
+    const ControlParams *params, bool requireLine, bool requireCommHeartbeat);
 
 /* 用途：记录主循环漏执行；连续达到参数限值时本地故障停车。 */
 bool SafetyGuard_ReportOverrun(
