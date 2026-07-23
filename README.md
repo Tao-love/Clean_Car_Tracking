@@ -32,6 +32,12 @@ UART1 使用 `9600 8N1`，引脚如下：
 
 只连接 TX、RX 和 GND；**不要将 USB-TTL 的 5V 接到板上。** UART1 目前只处理既有二进制帧，不会返回可读文本或终端回显。
 
+## CH340 UART BSL 下载边界
+
+`targetConfigs/MSPM0G3507.ccxml` 当前是 XDS110 调试目标，不是 UART BSL 配置。若使用板载 CH340 进行 UART BSL 下载，请先在设备管理器确认当前 `USB-SERIAL CH340` 的 COM 号（不要假定固定端口号），并使用另行配置的 CCS UART Connection 或已批准的 BSL 下载工具。仅在获得厂商确认的 BOOT/RESET 进入时序后进入 BSL，不要自行猜测按键或复位顺序。
+
+下载前让车轮悬空或断开电机主电源。UART BSL 仅用于下载，不能提供 SWD 的断点、单步或实时内存查看。
+
 ## 工程与调试
 
 - `inc/`, `src/`：MSPM0 固件，包括参数、控制、安全、状态机、Flash、UART 传输和既有二进制协议。
