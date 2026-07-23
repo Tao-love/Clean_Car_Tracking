@@ -18,10 +18,19 @@
 #include "safety_guard.h"
 #include "speed_pi.h"
 #include "trial_stats.h"
+#include "uart_echo.h"
 
 static uint16_t gMotorStopCalls;
 static uint16_t gControlResetCalls;
 static volatile int gTestResult;
+static const uint8_t *gEchoInput;
+static uint16_t gEchoInputLength;
+static uint16_t gEchoInputIndex;
+static uint8_t gEchoOutput[4];
+static uint16_t gEchoOutputLength;
+static uint16_t gEchoWriteAttempts;
+static bool gEchoWritesAreOneByteHighPriority;
+static bool gEchoRejectFirstWrite;
 
 /* 仅供离线契约 ELF 链接占位，不是可烧录的 MSPM0 启动向量表。 */
 void (*const interruptVectors[])(void)
@@ -107,6 +116,73 @@ static int Test_RingBuffer(void)
     }
     if (RingBuffer_Pop(&buffer, &value) || !RingBuffer_IsEmpty(&buffer)) {
         return 17;
+    }
+    return 0;
+}
+
+static void TestEcho_Reset(const uint8_t *input, uint16_t inputLength)
+{
+    gEchoInput = input;
+    gEchoInputLength = inputLength;
+    gEchoInputIndex = 0U;
+    gEchoOutputLength = 0U;
+    gEchoWriteAttempts = 0U;
+    gEchoWritesAreOneByteHighPriority = true;
+    gEchoRejectFirstWrite = false;
+}
+
+static bool TestEcho_Read(uint8_t *value)
+{
+    if ((value == 0) || (gEchoInputIndex >= gEchoInputLength)) {
+        return false;
+    }
+    *value = gEchoInput[gEchoInputIndex];
+    gEchoInputIndex++;
+    return true;
+}
+
+static bool TestEcho_Write(
+    const uint8_t *data, uint16_t length, bool highPriority)
+{
+    gEchoWriteAttempts++;
+    if ((data == 0) || (length != 1U) || !highPriority) {
+        gEchoWritesAreOneByteHighPriority = false;
+        return false;
+    }
+    if (gEchoRejectFirstWrite && (gEchoWriteAttempts == 1U)) {
+        return false;
+    }
+    if (gEchoOutputLength >= sizeof(gEchoOutput)) {
+        return false;
+    }
+    gEchoOutput[gEchoOutputLength] = data[0];
+    gEchoOutputLength++;
+    return true;
+}
+
+static int Test_UartEcho(void)
+{
+    static const uint8_t input[] = { 'p', 'i', 'n' };
+    uint16_t consumed;
+
+    TestEcho_Reset(input, sizeof(input));
+    consumed = UART_Echo_Poll(TestEcho_Read, TestEcho_Write, 2U);
+    if ((consumed != 2U) || (gEchoOutputLength != 2U) ||
+        (gEchoOutput[0] != 'p') || (gEchoOutput[1] != 'i')) {
+        return 55;
+    }
+    consumed = UART_Echo_Poll(TestEcho_Read, TestEcho_Write, 64U);
+    if ((consumed != 1U) || (gEchoOutputLength != 3U) ||
+        (gEchoOutput[2] != 'n') || !gEchoWritesAreOneByteHighPriority) {
+        return 56;
+    }
+    TestEcho_Reset(input, sizeof(input));
+    gEchoRejectFirstWrite = true;
+    consumed = UART_Echo_Poll(TestEcho_Read, TestEcho_Write, 64U);
+    if ((consumed != 3U) || (gEchoWriteAttempts != 3U) ||
+        (gEchoOutputLength != 2U) || (gEchoOutput[0] != 'i') ||
+        (gEchoOutput[1] != 'n')) {
+        return 57;
     }
     return 0;
 }
@@ -325,6 +401,10 @@ int main(void)
         return result;
     }
     result = Test_RingBuffer();
+    if (result != 0) {
+        return result;
+    }
+    result = Test_UartEcho();
     if (result != 0) {
         return result;
     }
