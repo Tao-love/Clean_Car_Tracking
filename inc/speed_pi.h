@@ -14,11 +14,14 @@
 #include <stdint.h>
 
 typedef struct {
+    /* I 项的历史累计值；不是 PWM，也不是需要直接手动填写的参数。 */
     int32_t integral;
 } SpeedPIState;
 
 typedef struct {
+    /* 本次返回给电机驱动模块的 PWM 命令；正负号表示方向。 */
     int16_t pwm;
+    /* true：原始计算值超过 pwmLimit，pwm 已被限制在上限或下限。 */
     bool saturated;
 } SpeedPIOutput;
 
@@ -28,7 +31,8 @@ void SpeedPI_Reset(SpeedPIState *state);
 /*
  * 用途：执行一次 10 ms PI 计算。
  * 输入：状态、目标/实测速度、Q16.16 kp/ki/feedforward、积分限值和 PWM 限值。
- * 输出：PWM 与饱和标志。目标为 0 时清积分并输出 0。ISR 不可调用。
+ * 输出：SpeedPIOutput：pwm 是实际要输出的电机 PWM；saturated 表示是否限幅。
+ *       目标为 0 时清积分并返回 {0, false}。ISR 不可调用。
  */
 SpeedPIOutput SpeedPI_Step(SpeedPIState *state, int16_t target,
     int16_t actual, int32_t kpQ16, int32_t kiQ16, int32_t feedforwardQ16,

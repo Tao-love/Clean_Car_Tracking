@@ -95,7 +95,7 @@ static void App_StartKey1Trial(uint32_t tick)
     if (TrialManager_Arm(ControlParams_GetVersion()) != TRIAL_COMMAND_OK) {
         return;
     }
-    (void) TrialManager_Start(tick, TRIAL_MODE_LINE_FOLLOW, 0, 0,
+    (void) TrialManager_Start(tick, TRIAL_MODE_WHEEL_SPEED, 5, 5,
         TRIAL_START_SOURCE_KEY1);
 }
 

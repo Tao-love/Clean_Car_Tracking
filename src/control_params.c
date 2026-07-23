@@ -18,8 +18,8 @@
 #define PARAM_OVERRUN_LIMIT_MAX     (20U)
 
 static const ControlParams gSafeDefaults = {
-    0, 0, 0, 0, 0, 0, 0, 0, (Q16_ONE / 2), 10000,
-    0, 100, 100, 400, 3500, 300, 1, 10U, 3U
+    8L * Q16_ONE, 0, 28L * Q16_ONE, 8L * Q16_ONE, 0, 24L * Q16_ONE, 0, 0,
+    (Q16_ONE / 2), 10000, 5, 100, 100, 200, 3500, 80, 1, 10U, 3U
 };
 
 static ControlParams gActiveParams;

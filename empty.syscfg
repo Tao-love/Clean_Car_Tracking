@@ -161,6 +161,7 @@ I2C_MPU6050.peripheral.sdaPin.$assign = "PB3";
 
 PWM_MOTOR.$name = "PWM_MOTOR";
 PWM_MOTOR.timerCount = 1600;
+PWM_MOTOR.pwmMode = "EDGE_ALIGN_UP";
 PWM_MOTOR.ccIndex = [0, 2];
 PWM_MOTOR.peripheral.$assign = "TIMA0";
 PWM_MOTOR.peripheral.ccp0Pin.$assign = "PB14";
