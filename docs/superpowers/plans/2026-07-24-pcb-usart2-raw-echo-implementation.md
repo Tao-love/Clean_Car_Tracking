@@ -39,18 +39,19 @@ param(
 )
 
 $required = @(
-    '#define UART_DEBUG_INST                                                    UART2',
-    '#define UART_DEBUG_INST_IRQHandler                              UART2_IRQHandler',
-    '#define GPIO_UART_DEBUG_RX_PORT                                            GPIOB',
-    '#define GPIO_UART_DEBUG_TX_PORT                                            GPIOB',
-    '#define GPIO_UART_DEBUG_RX_PIN                                    DL_GPIO_PIN_16',
-    '#define GPIO_UART_DEBUG_TX_PIN                                    DL_GPIO_PIN_15',
-    '#define GPIO_UART_DEBUG_IOMUX_RX_FUNC                 IOMUX_PINCM33_PF_UART2_RX',
-    '#define GPIO_UART_DEBUG_IOMUX_TX_FUNC                 IOMUX_PINCM32_PF_UART2_TX',
-    '#define UART_DEBUG_BAUD_RATE                                              (9600)'
+    '#define UART_DEBUG_INST UART2',
+    '#define UART_DEBUG_INST_IRQHandler UART2_IRQHandler',
+    '#define GPIO_UART_DEBUG_RX_PORT GPIOB',
+    '#define GPIO_UART_DEBUG_TX_PORT GPIOB',
+    '#define GPIO_UART_DEBUG_RX_PIN DL_GPIO_PIN_16',
+    '#define GPIO_UART_DEBUG_TX_PIN DL_GPIO_PIN_15',
+    '#define GPIO_UART_DEBUG_IOMUX_RX_FUNC IOMUX_PINCM33_PF_UART2_RX',
+    '#define GPIO_UART_DEBUG_IOMUX_TX_FUNC IOMUX_PINCM32_PF_UART2_TX',
+    '#define UART_DEBUG_BAUD_RATE (9600)'
 )
 $text = Get-Content -Raw -LiteralPath $HeaderPath
-$missing = $required | Where-Object { -not $text.Contains($_) }
+$normalized = $text -replace '\\s+', ' '
+$missing = $required | Where-Object { -not $normalized.Contains($_) }
 if ($missing.Count -ne 0) {
     $missing | ForEach-Object { Write-Error "Missing: $_" }
     exit 1
@@ -141,4 +142,3 @@ Expected: exit code 0 and identical sent/received byte sequences. On mismatch, r
 - Spec coverage: Task 1 moves only the SysConfig source of truth and asserts all generated UART2 PB15/PB16 properties; Task 2 tests the exact PCB connector and COM14 behavior.
 - Placeholder scan: no incomplete steps or unspecified pin assignments remain.
 - Type consistency: no application-level interface changes; generated UART_DEBUG macros preserve the transport interface.
-
