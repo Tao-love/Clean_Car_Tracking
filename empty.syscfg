@@ -181,7 +181,7 @@ TIMER_CONTROL.peripheral.$assign = "TIMG0";
 UART_DEBUG.$name = "UART_DEBUG";
 UART_DEBUG.enableFIFO = true;
 // ----- AI
-// JDY-31 首次联调固定使用 9600 8N1；RX 中断只搬运字节，不在 ISR 解析协议。
+// UART1 使用 9600 8N1；RX 中断只搬运字节，不在 ISR 解析上层数据。
 UART_DEBUG.targetBaudRate = 9600;
 UART_DEBUG.enabledInterrupts = ["RX"];
 UART_DEBUG.rxFifoThreshold = "DL_UART_RX_FIFO_LEVEL_ONE_ENTRY";
