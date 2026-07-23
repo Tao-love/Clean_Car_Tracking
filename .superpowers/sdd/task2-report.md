@@ -10,6 +10,7 @@
 ## Checks run
 
 - Read the Task 2 plan and inspected `git status`, current README, SysConfig source, preserved documents, `src/main.c`, `src/control_params.c`, and `targetConfigs/MSPM0G3507.ccxml`.
+- Corrected the manual-tuning design to distinguish the current KEY1 `TRIAL_MODE_WHEEL_SPEED` 6/6 behavior from its future `TRIAL_MODE_LINE_FOLLOW` proposal; checked the updated wording with `rg` and `git diff --check`.
 - No build, test, flashing, SysConfig generation, or validation script was run, per task constraints.
 
 ## Concerns

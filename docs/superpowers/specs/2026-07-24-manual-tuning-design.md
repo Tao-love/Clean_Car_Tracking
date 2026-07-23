@@ -2,7 +2,7 @@
 
 ## 目标
 
-把原先由远程 `SET_PARAMS` 下发的运行参数变成项目内集中、可直接编辑的手动参数表。每次烧录后的参数只来自该表，不加载历史 Flash 参数。KEY1 启动改为低速循线，以便直接调节基础速度与循线 PD。
+本设计计划把原先由远程 `SET_PARAMS` 下发的运行参数变成项目内集中、可直接编辑的手动参数表。每次烧录后的参数只来自该表，不加载历史 Flash 参数。作为未来改动，KEY1 将改为低速循线，以便直接调节基础速度与循线 PD。
 
 ## 参数来源
 
@@ -27,9 +27,9 @@
 
 ## 启动行为
 
-`ControlParams_Init` 不再接收或采纳 Flash 参数；它总是复制手动参数表，并保持原有范围校验。`main` 不再调用 `FlashParams_LoadLatest`。
+当前固件中，KEY1 按下后先进入 `ARMED`，再以 `TRIAL_MODE_WHEEL_SPEED` 启动，左右目标速度均为 `6`。这不是循线试验。
 
-KEY1 按下后仍先进入 `ARMED`，再以 `TRIAL_MODE_LINE_FOLLOW` 启动。`left/right` 启动命令对循线模式无效，目标速度改由参数表中的 `baseSpeed` 和循线控制器计算。
+未来实施本设计时，`ControlParams_Init` 将不再接收或采纳 Flash 参数，而是总复制手动参数表，并保持原有范围校验；`main` 将不再调用 `FlashParams_LoadLatest`。KEY1 将仍先进入 `ARMED`，但改以 `TRIAL_MODE_LINE_FOLLOW` 启动。届时 `left/right` 启动命令对循线模式无效，目标速度将由参数表中的 `baseSpeed` 和循线控制器计算。
 
 ## 保留范围
 
