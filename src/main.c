@@ -1,9 +1,9 @@
 // ----- AI
 /*
- * 1-3 无线自动整定应用入口。
+ * UART1 原样回显应用入口。
  *
  * 职责：按安全顺序初始化硬件，调度非阻塞协议和 10 ms 任务。
- * 依赖：SysConfig、motor、UART transport、protocol、app_protocol。
+ * 依赖：SysConfig、motor、UART transport、uart_echo。
  * 上下文：main 主循环；TIMG0 ISR 只递增 tick。
  * 数据单位：gControlTick 每单位 10 ms。
  * 硬件副作用：初始化外设、开启 PWM 计数器（比较值为 0）、UART1 和 TIMG0。
@@ -13,23 +13,19 @@
 #include <stdint.h>
 
 #include "ti_msp_dl_config.h"
-#include "app_protocol.h"
 #include "control_params.h"
 #include "flash_params.h"
 #include "key_start.h"
 #include "main.h"
 #include "motor.h"
-#include "protocol.h"
 #include "trial_manager.h"
+#include "uart_echo.h"
 #include "uart_transport.h"
 
-#define PROTOCOL_POLL_BYTE_BUDGET (64U)
-#define SESSION_TRNG_TIMEOUT      (100000UL)
-#define SESSION_FALLBACK_ID       (0xB13A0001UL)
+#define UART_ECHO_BYTE_BUDGET (64U)
 
 volatile uint32_t gControlTick = 0U;
 
-static uint32_t App_CreateSessionId(void);
 static void App_StartKey1Trial(uint32_t tick);
 static KeyStartState gKey1StartState;
 
@@ -51,8 +47,6 @@ int main(void)
         hasFlashParams ? flashParamVersion : 0U);
     KeyStart_Init(&gKey1StartState);
     UART_Transport_Init();
-    AppProtocol_Init(App_CreateSessionId());
-    Protocol_Init(AppProtocol_HandleFrame);
 
     /* 允许 TIMG0 的 10 ms 周期中断进入 CPU，ISR 只递增单调 tick。 */
     NVIC_EnableIRQ(TIMER_CONTROL_INST_INT_IRQN);
@@ -62,8 +56,9 @@ int main(void)
     while (1) {
         uint32_t currentTick;
 
-        /* 每次最多解析 64 个 UART 字节，避免噪声流长时间占用主循环。 */
-        (void) Protocol_Poll(PROTOCOL_POLL_BYTE_BUDGET);
+        /* 每次最多回显 64 个 UART 字节，避免噪声流长时间占用主循环。 */
+        (void) UART_Echo_Poll(UART_Transport_ReadByte,
+            UART_Transport_Write, UART_ECHO_BYTE_BUDGET);
 
         currentTick = gControlTick;
         if (currentTick != lastProcessedTick) {
@@ -76,7 +71,6 @@ int main(void)
             }
             App_StartKey1Trial(currentTick);
             TrialManager_ControlTick(currentTick);
-            AppProtocol_OnControlBoundary(currentTick);
             lastProcessedTick = currentTick;
         }
     }
@@ -97,30 +91,6 @@ static void App_StartKey1Trial(uint32_t tick)
     }
     (void) TrialManager_Start(tick, TRIAL_MODE_WHEEL_SPEED, 6, 6,
         TRIAL_START_SOURCE_KEY1);
-}
-
-static uint32_t App_CreateSessionId(void)
-{
-    uint32_t timeout = SESSION_TRNG_TIMEOUT;
-    uint32_t sessionId = SESSION_FALLBACK_ID;
-
-    /* 等待 TRNG 完成一次真随机捕获；此时 Motor_Init 已统一停车，且等待有硬上限。 */
-    while (!DL_TRNG_isCaptureReady(TRNG) && (timeout != 0U)) {
-        timeout--;
-    }
-    if (timeout != 0U) {
-        /* 清除 TRNG 捕获完成标志，便于外设正确收尾。 */
-        DL_TRNG_clearInterruptStatus(
-            TRNG, DL_TRNG_INTERRUPT_CAPTURE_RDY_EVENT);
-        /* 读出 32 位真随机捕获值作为本次上电的 Session ID。 */
-        sessionId = DL_TRNG_getCapture(TRNG);
-        if (sessionId == 0U) {
-            sessionId = SESSION_FALLBACK_ID;
-        }
-    }
-    /* Session ID 只需一次随机数，随后关闭 TRNG 电源降低功耗。 */
-    DL_TRNG_disablePower(TRNG);
-    return sessionId;
 }
 
 void TIMER_CONTROL_INST_IRQHandler(void)
