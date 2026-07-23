@@ -52,6 +52,14 @@ static int Test_UartEcho(void)
         (gEchoOutput[2] != 'n') || !gEchoWritesAreOneByteHighPriority) {
         return 56;
     }
+    TestEcho_Reset(input, sizeof(input));
+    gEchoRejectFirstWrite = true;
+    consumed = UART_Echo_Poll(TestEcho_Read, TestEcho_Write, 64U);
+    if ((consumed != 3U) || (gEchoWriteAttempts != 3U) ||
+        (gEchoOutputLength != 2U) || (gEchoOutput[0] != 'i') ||
+        (gEchoOutput[1] != 'n')) {
+        return 57;
+    }
     return 0;
 }
 ```
@@ -135,17 +143,7 @@ git commit -m "feat: add bounded UART raw echo poller"
 - Produces: a main loop that echoes up to `UART_ECHO_BYTE_BUDGET` received bytes per pass.
 - Removes from active runtime path: `Protocol_Init`, `Protocol_Poll`, `AppProtocol_Init`, and `App_CreateSessionId`; their source files remain unchanged and continue to build.
 
-- [ ] **Step 1: Write the failing integration expectation**
-
-In `tests/firmware_host/test_core.c`, add a second `Test_UartEcho` case where `TestEcho_Write` rejects its first write. Assert that `UART_Echo_Poll` still returns the complete input byte count and that later input bytes are offered to the writer. Return `57` if the behavior differs.
-
-- [ ] **Step 2: Run the test to verify it fails**
-
-Run: `powershell -ExecutionPolicy Bypass -File .\tools\verify.ps1`
-
-Expected: the new rejection assertion fails with test return code 57 until the test fixture correctly observes rejected writes. The production poller must not be changed unless it violates the assertion.
-
-- [ ] **Step 3: Integrate the already-tested poller in `main.c`**
+- [ ] **Step 1: Integrate the already-tested poller in `main.c`**
 
 Make these focused edits:
 
@@ -166,13 +164,13 @@ Leave `SYSCFG_DL_init`, `Motor_Init`, `TrialManager_Init`, the KEY1 logic, and t
 
 Update the README UART section to state that this temporary build uses `PA8/PA9`, `9600 8N1`, and raw byte-for-byte echo; document the three signal-only connections and state that it does not accept the previous binary protocol.
 
-- [ ] **Step 4: Run all offline checks to verify green**
+- [ ] **Step 2: Run all offline checks to verify green**
 
 Run: `powershell -ExecutionPolicy Bypass -File .\tools\verify.ps1`
 
 Expected: exit code 0, all source files compile with `-Wall -Wextra -Werror`, the ARM contract test links, and the resulting firmware path is `.build\verify\USB_nobluetooth.out`.
 
-- [ ] **Step 5: Commit the raw echo application mode**
+- [ ] **Step 3: Commit the raw echo application mode**
 
 ```powershell
 git add src/main.c README.md tests/firmware_host/test_core.c
@@ -227,4 +225,3 @@ Run `git status --short` and preserve only the intended source/documentation cha
 - Spec coverage: Task 1 creates the bounded reusable echo behavior with a host contract test; Task 2 activates it without changing UART1 SysConfig or unrelated control code; Task 3 gives the precise COM14 hardware validation.
 - Placeholder scan: no incomplete implementation steps or unspecified commands remain.
 - Type consistency: `UART_Echo_Poll` accepts callbacks matching `UART_Transport_ReadByte` and `UART_Transport_Write`; the return type is `uint16_t` throughout.
-
