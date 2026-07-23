@@ -1,12 +1,12 @@
 // ----- AI
 /*
- * UART1 原样回显应用入口。
+ * UART2 原样回显应用入口。
  *
  * 职责：按安全顺序初始化硬件，调度非阻塞协议和 10 ms 任务。
  * 依赖：SysConfig、motor、UART transport、uart_echo。
  * 上下文：main 主循环；TIMG0 ISR 只递增 tick。
  * 数据单位：gControlTick 每单位 10 ms。
- * 硬件副作用：初始化外设、开启 PWM 计数器（比较值为 0）、UART1 和 TIMG0。
+ * 硬件副作用：初始化外设、开启 PWM 计数器（比较值为 0）、UART2 和 TIMG0。
  * 故障输出：本阶段不启动电机；后续由 safety_guard 锁存故障。
  */
 
@@ -47,6 +47,7 @@ int main(void)
         hasFlashParams ? flashParamVersion : 0U);
     KeyStart_Init(&gKey1StartState);
     UART_Transport_Init();
+    (void) UART_Echo_SendStartupBeacon(UART_Transport_Write);
 
     /* 允许 TIMG0 的 10 ms 周期中断进入 CPU，ISR 只递增单调 tick。 */
     NVIC_EnableIRQ(TIMER_CONTROL_INST_INT_IRQN);

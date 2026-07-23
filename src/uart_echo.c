@@ -20,4 +20,14 @@ uint16_t UART_Echo_Poll(UART_EchoReadByte readByte,
     }
     return consumed;
 }
+
+bool UART_Echo_SendStartupBeacon(UART_EchoWriteBytes writeBytes)
+{
+    static const uint8_t banner[] = "UART2 READY\r\n";
+
+    if (writeBytes == 0) {
+        return false;
+    }
+    return writeBytes(banner, sizeof(banner) - 1U, true);
+}
 // ----- AI

@@ -21,5 +21,8 @@ typedef bool (*UART_EchoWriteBytes)(
 uint16_t UART_Echo_Poll(UART_EchoReadByte readByte,
     UART_EchoWriteBytes writeBytes, uint16_t byteBudget);
 
+/* 用途：提交一次 UART2 启动提示；返回 true 表示完整提示已入队。 */
+bool UART_Echo_SendStartupBeacon(UART_EchoWriteBytes writeBytes);
+
 #endif /* UART_ECHO_H */
 // ----- AI

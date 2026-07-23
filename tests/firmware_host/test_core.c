@@ -31,6 +31,10 @@ static uint16_t gEchoOutputLength;
 static uint16_t gEchoWriteAttempts;
 static bool gEchoWritesAreOneByteHighPriority;
 static bool gEchoRejectFirstWrite;
+static uint8_t gStartupBeaconOutput[16];
+static uint16_t gStartupBeaconLength;
+static uint16_t gStartupBeaconWriteAttempts;
+static bool gStartupBeaconHighPriority;
 
 /* 仅供离线契约 ELF 链接占位，不是可烧录的 MSPM0 启动向量表。 */
 void (*const interruptVectors[])(void)
@@ -183,6 +187,52 @@ static int Test_UartEcho(void)
         (gEchoOutputLength != 2U) || (gEchoOutput[0] != 'i') ||
         (gEchoOutput[1] != 'n')) {
         return 57;
+    }
+    return 0;
+}
+
+static void TestStartupBeacon_Reset(void)
+{
+    gStartupBeaconLength = 0U;
+    gStartupBeaconWriteAttempts = 0U;
+    gStartupBeaconHighPriority = false;
+}
+
+static bool TestStartupBeacon_Write(
+    const uint8_t *data, uint16_t length, bool highPriority)
+{
+    uint16_t index;
+
+    gStartupBeaconWriteAttempts++;
+    gStartupBeaconHighPriority = highPriority;
+    if ((data == 0) || (length > sizeof(gStartupBeaconOutput))) {
+        return false;
+    }
+    for (index = 0U; index < length; index++) {
+        gStartupBeaconOutput[index] = data[index];
+    }
+    gStartupBeaconLength = length;
+    return true;
+}
+
+static int Test_UartStartupBeacon(void)
+{
+    static const uint8_t expected[] = "UART2 READY\r\n";
+    uint16_t index;
+
+    TestStartupBeacon_Reset();
+    if (!UART_Echo_SendStartupBeacon(TestStartupBeacon_Write)) {
+        return 58;
+    }
+    if ((gStartupBeaconWriteAttempts != 1U) ||
+        !gStartupBeaconHighPriority ||
+        (gStartupBeaconLength != (sizeof(expected) - 1U))) {
+        return 59;
+    }
+    for (index = 0U; index < gStartupBeaconLength; index++) {
+        if (gStartupBeaconOutput[index] != expected[index]) {
+            return 60;
+        }
     }
     return 0;
 }
@@ -405,6 +455,10 @@ int main(void)
         return result;
     }
     result = Test_UartEcho();
+    if (result != 0) {
+        return result;
+    }
+    result = Test_UartStartupBeacon();
     if (result != 0) {
         return result;
     }
