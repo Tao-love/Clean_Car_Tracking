@@ -1,16 +1,15 @@
 # ----- AI
 <#
-1_USB 完整离线验证。
+MSPM0 固件完整离线验证。
 
-职责：重生成 SysConfig，运行 Python 测试，使用 TI Arm Clang 严格编译/链接所有固件源码，
+职责：重生成 SysConfig，使用 TI Arm Clang 严格编译/链接所有固件源码，
 并验证 Flash 双槽的绝对地址。脚本不烧录、不打开 COM 口、不启动电机。
 #>
 
 param(
     [string]$SdkRoot = 'C:\ti\ti\mspm0_sdk_2_11_00_07',
     [string]$CompilerRoot = 'C:\ti\ti_cgt_arm_llvm_4.0.2.LTS',
-    [string]$SysConfigCli = 'C:\ti\ccs\utils\sysconfig_1.28.0\sysconfig_cli.bat',
-    [string]$PythonExe = 'E:\python\python.exe'
+    [string]$SysConfigCli = 'C:\ti\ccs\utils\sysconfig_1.28.0\sysconfig_cli.bat'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -21,8 +20,7 @@ New-Item -ItemType Directory -Force $Output | Out-Null
 foreach ($required in @(
     (Join-Path $SdkRoot '.metadata\product.json'),
     (Join-Path $CompilerRoot 'bin\tiarmclang.exe'),
-    $SysConfigCli,
-    $PythonExe
+    $SysConfigCli
 )) {
     if (-not (Test-Path -LiteralPath $required)) {
         throw "缺少验证依赖: $required"
@@ -38,12 +36,6 @@ try {
         --compiler ticlang `
         --treatWarningsAsErrors
     if ($LASTEXITCODE -ne 0) { throw 'SysConfig 生成失败' }
-
-    $env:PYTHONPATH = 'python;python\tests'
-    & $PythonExe -m unittest discover -s python\tests -v
-    if ($LASTEXITCODE -ne 0) { throw 'Python 测试失败' }
-    & $PythonExe -m compileall -q python\autotune
-    if ($LASTEXITCODE -ne 0) { throw 'Python 语法检查失败' }
 
     $Compiler = Join-Path $CompilerRoot 'bin\tiarmclang.exe'
     $Common = @(
