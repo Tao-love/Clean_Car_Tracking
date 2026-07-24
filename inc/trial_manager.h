@@ -1,9 +1,9 @@
 // ----- AI
 /*
- * 5 秒试验状态机和 100 Hz 控制编排模块。
+ * 15 秒试验状态机和 100 Hz 控制编排模块。
  * 职责：管理 BOOT_SAFE/IDLE/ARMED/RUNNING/FINISHED/FAULT/FLASH_WRITE，调用灰度、速度 PI、循线 PD、安全和统计。
  * 依赖：gray_sensor、encoder、motor、control_params、line_control、speed_pi、safety_guard、trial_stats。
- * 上下文：所有 API 只由主循环调用，禁止 ISR。单位：tick=10 ms，trial 最多 500 tick。
+ * 上下文：所有 API 只由主循环调用，禁止 ISR。单位：tick=10 ms，trial 最多 1500 tick。
  * 硬件副作用：RUNNING 时写电机，所有退出路径均经统一停车。
  * 故障输出：FAULT 状态、SafetyStatus 和 TrialSummary。
  */
@@ -19,7 +19,7 @@
 #include "safety_guard.h"
 #include "trial_stats.h"
 
-#define TRIAL_DURATION_TICKS (500U)
+#define TRIAL_DURATION_TICKS (1500U)
 
 typedef enum {
     TRIAL_COMMAND_OK = 0,
@@ -66,7 +66,7 @@ ParamsValidationResult TrialManager_StageParams(const ControlParams *params);
 /* 用途：检查参数版本和安全条件后 IDLE→ARMED。 */
 TrialCommandResult TrialManager_Arm(uint16_t paramVersion);
 
-/* 用途：ARMED→RUNNING，开始独立最多 500 tick 试验；仅蓝牙来源要求通信心跳。 */
+/* 用途：ARMED→RUNNING，开始独立最多 1500 tick 试验；仅蓝牙来源要求通信心跳。 */
 TrialCommandResult TrialManager_Start(
     uint32_t tick, TrialMode mode, int16_t leftCommand, int16_t rightCommand,
     TrialStartSource source);

@@ -14,7 +14,6 @@
 
 #include "ti_msp_dl_config.h"
 #include "control_params.h"
-#include "flash_params.h"
 #include "key_start.h"
 #include "main.h"
 #include "motor.h"
@@ -32,19 +31,12 @@ static KeyStartState gKey1StartState;
 int main(void)
 {
     uint32_t lastProcessedTick = 0U;
-    ControlParams flashParams;
-    uint16_t flashParamVersion = 0U;
-    uint32_t flashGeneration = 0U;
-    bool hasFlashParams;
-
     /* 按 SysConfig 生成配置初始化时钟、GPIO、PWM、UART 和定时器；此时 PWM 默认比较值为 0。 */
     SYSCFG_DL_init();
     /* Motor_Init 的第一个硬件动作是同时清零两路 PWM 和四个方向脚。 */
     Motor_Init();
-    hasFlashParams = FlashParams_LoadLatest(
-        &flashParams, &flashParamVersion, &flashGeneration);
-    TrialManager_Init(0U, hasFlashParams ? &flashParams : 0,
-        hasFlashParams ? flashParamVersion : 0U);
+    /* 手动调参版本仅使用 src/manual_tuning.c 中随固件烧录的参数表。 */
+    TrialManager_Init(0U, 0, 0U);
     KeyStart_Init(&gKey1StartState);
     UART_Transport_Init();
     (void) UART_Echo_SendStartupBeacon(UART_Transport_Write);
@@ -90,7 +82,7 @@ static void App_StartKey1Trial(uint32_t tick)
     if (TrialManager_Arm(ControlParams_GetVersion()) != TRIAL_COMMAND_OK) {
         return;
     }
-    (void) TrialManager_Start(tick, TRIAL_MODE_WHEEL_SPEED, 6, 6,
+    (void) TrialManager_Start(tick, TRIAL_MODE_LINE_FOLLOW, 0, 0,
         TRIAL_START_SOURCE_KEY1);
 }
 

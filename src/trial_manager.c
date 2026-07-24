@@ -1,5 +1,5 @@
 // ----- AI
-/* 本地 100 Hz 双闭环、500 tick 试验、状态转移与汇总生成。 */
+/* 本地 100 Hz 双闭环、1500 tick 试验、状态转移与汇总生成。 */
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -348,6 +348,8 @@ static void TrialManager_Finish(
         Encoder_GetLeftCount(), Encoder_GetRightCount());
     gStatus.safety = SafetyGuard_GetStatus();
     gStatus.summaryReady = true;
-    gStatus.state = state;
+    /* 正常跑满 15 秒可再次按 KEY1；任何安全故障仍锁存在 FAULT，必须复位。 */
+    gStatus.state = (reason == STOP_REASON_TRIAL_COMPLETE) ?
+        SYSTEM_STATE_IDLE : state;
 }
 // ----- AI

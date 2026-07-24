@@ -1,49 +1,56 @@
-# basic-1：MSPM0G3507 小车固件
+# USB_nobluetooth：MSPM0G3507 手动烧录调参固件
 
-`basic-1` 是 MSPM0G3507 小车的控制固件工程。固件在本地执行 100 Hz 控制、试验状态管理、安全停车和统计；当前调试构建将 PCB `USART2` 配置为原样回显，用于 USB-TTL 链路验证。
+这是不依赖蓝牙或串口调参的 MSPM0G3507 小车固件。每次改变参数后，重新编译、烧录，再用 KEY1 完成一次最多 5 秒的本地循线试验。UART2 仍只是原样回显诊断通道，不参与启动或调参。
 
-## 当前运行与安全边界
+## 已实现的运行路径
 
-- 上电后不会自动启动电机；每次试验最长为 5 秒，由 MCU 本地结束。
-- KEY1 是 `PA23` 上拉输入。按下沿会在 `IDLE` 请求一次车轮速度试验，左右目标速度均为 `6`（每 10 ms 编码器计数）；按住不会重复启动。
-- KEY1 试验仍保留堵转、控制超期、参数校验和 5 秒自动停止等安全处理。发现方向反了、明显失控或堵转时，应立即断开电机电源。
-- `maxPwm` 的固件校验上限为 `400`，PWM 满量程为 `1600`。首次调大输出时先让车轮悬空；落地测试从低速、低 PWM 上限开始。
-- TB6612FNG 的 `STBY` 在现有 PCB 上固定为 5 V；统一停车会把 `PWMA/PWMB` 及四个方向控制脚清零。
+```text
+编辑 src/manual_tuning.c
+→ 编译、烧录、上电
+→ 放车在线上，短按 KEY1
+→ 100 Hz 循线 + 左右速度 PI（最多 5 秒）
+→ 正常结束：可再次按 KEY1
+→ 安全故障：停车并锁存，必须复位/重新上电后再试
+```
 
-## 当前参数位置
+- `KEY1` 是 `PA23` 上拉输入，按下沿只触发一次 `TRIAL_MODE_LINE_FOLLOW`。左右目标速度由 `baseSpeed` 与循线 PD 计算，KEY1 不再启动固定 `6/6` 的轮速试验。
+- 本次上电的参数只来自 [`src/manual_tuning.c`](src/manual_tuning.c)。旧 Flash 参数不会被读取或覆盖源码表。
+- 正常运行满 500 个 10 ms tick（5 秒）后立即回到 `IDLE`，可再次按 KEY1。丢线、堵转、控制超期等故障保持 `FAULT`，KEY1 不会清除故障；先排查后复位。
+- 100 Hz 控制、八路灰度、编码器速度 PI、5 秒上限、丢线/堵转/控制超期保护均保留。
+- `maxPwm` 的固件上限是 `400`，PWM 满量程是 `1600`。当前手动表为 `200`；在完成低速验证前不要增大它。
 
-运行参数定义、范围校验和二进制编码位于 `src/control_params.c`。默认值目前包括：
+## 唯一需要编辑的参数表
 
-- `baseSpeed=5`（单位为每 10 ms 目标编码器计数，不是 PWM 百分比）
-- 左/右速度前馈为 `28` / `24`，速度 `Kp` 为 `8` / `8`，速度 `Ki` 为 `0` / `0`
-- 循线 `Kp/Kd=0/0`，`maxPwm=200`
+只编辑 [`src/manual_tuning.c`](src/manual_tuning.c)，不要改 `syscfg_gen/`、`Debug/` 或 Flash 槽地址。增益是 Q16.16：`1.0 = Q16_ONE = 65536`；`baseSpeed`、`maxTargetSpeed` 和 `maxDeltaSpeed` 的单位均为“每 10 ms 编码器计数”，不是 PWM 百分比。
 
-本调试构建不接受既有二进制协议帧；收到 USART2 字节后会逐字节原样返回。参数与二进制协议源码保留在工程中，但不在当前主循环路径运行。
+当前保守基线：
 
-## USB-TTL 串口接线
+- 左/右速度：`Kp=8/8`、`Ki=0/0`、前馈=`28/24`。
+- 循线：`Kp=0`、`Kd=0`，因此它是安全的“无转向修正”基线，**不能据此期待完成循线**；首次落地前由调参记录给出小的非零 `Kp`，`Kd` 先保持 0。
+- `baseSpeed=5`、`maxPwm=200`、堵转阈值=`PWM 80` 且速度 `<1`。
 
-PCB `USART2` 使用 `9600 8N1`，并执行原样字节回显，测试接线如下：
+## 每轮手动调参流程
 
-| PCB USART2 插座 | USB-TTL |
-| --- | --- |
-| `2 脚：TX2 / PB15` | `RXD` |
-| `1 脚：RX2 / PB16` | `TXD` |
-| `3 脚：GND` | `GND` |
-| `4 脚：5V` | 不接 |
+1. 在 `src/manual_tuning.c` 只改本轮有依据的一组参数，记录实际值；编译并烧录。烧录前确认电池状态、接线、轮胎、灰度高度和赛道没有变化。
+2. 首次或输出增大后先悬空确认两轮均能转且正向 PWM 的编码器速度为正；发现反向、卡轮或无力，先处理电机/编码器/机械问题，不增大 PID。
+3. 落地时把车放在黑线上，朝向赛道前进方向；短按 KEY1，只观察一轮，最长 5 秒。方向反了或明显失控立刻断开电机电源。
+4. 先固定低 `baseSpeed`，调循线 `Kp` 到能回到线附近；再少量加入 `Kd` 抑制摆动；最后逐档提高 `baseSpeed`。速度 PI、前馈或 PWM 饱和异常要先回到低输出排查。
+5. 正常结束可再次按 KEY1。若约 0.15 秒停车，优先检查是否丢线；若约 0.3 秒停车，优先检查堵转、轮子和电源；故障后先复位再进行下一轮。
 
-只连接 TX、RX 和 GND；**不要将 USB-TTL 的 3.3V 或 5V 接到板上。** 小车由自身电池正常供电后，再连接 UART 信号线。每次复位后会先发送一次 `UART2 READY\r\n`，然后向 USART2 发送任意字节序列会收到完全相同的字节序列；该临时模式不处理既有二进制协议帧。
+每次反馈请包含：模式（KEY1 手动循线/车轮悬空）、落地与起点、实际烧录的 `baseSpeed`、左右前馈、左右 Kp/Ki、循线 Kp/Kd、`maxPwm`，以及运行时长、左右轮现象、循线现象和停止前表现。
 
-## CH340 UART BSL 下载边界
+## 编译验证与烧录
 
-`targetConfigs/MSPM0G3507.ccxml` 当前是 XDS110 调试目标，不是 UART BSL 配置。若使用板载 CH340 进行 UART BSL 下载，请先在设备管理器确认当前 `USB-SERIAL CH340` 的 COM 号（不要假定固定端口号），并使用另行配置的 CCS UART Connection 或已批准的 BSL 下载工具。仅在获得厂商确认的 BOOT/RESET 进入时序后进入 BSL，不要自行猜测按键或复位顺序。
+离线验证（不烧录、不打开串口、不驱动电机）：
 
-下载前让车轮悬空或断开电机主电源。UART BSL 仅用于下载，不能提供 SWD 的断点、单步或实时内存查看。
+```powershell
+cd E:\TI_work\TI_Project\USB_nobluetooth
+powershell -ExecutionPolicy Bypass -File .\tests\verify_manual_tuning.ps1
+powershell -ExecutionPolicy Bypass -File .\tools\verify.ps1
+```
 
-## 工程与调试
+使用 CCS 导入本目录工程；可编辑的 SysConfig 源为 `empty.syscfg`，生成文件仅供读取。`targetConfigs/MSPM0G3507.ccxml` 当前配置为 XDS110；若使用 CH340 UART BSL 下载，请使用经过确认的 UART BSL 连接配置和厂商提供的 BOOT/RESET 时序。UART BSL 不提供在线调试。
 
-- `inc/`, `src/`：MSPM0 固件，包括参数、控制、安全、状态机、Flash、UART 传输和既有二进制协议。
-- `empty.syscfg`：PB15/PB16 UART2 9600、1 字节 RX FIFO 阈值、10 ms TIMG0、PWM、编码器和灰度配置。
-- `targetConfigs/MSPM0G3507.ccxml`：当前 XDS110 调试目标配置。
-- `legacy/teammate_initial/`：不参与构建的旧参考文件。
+## UART2 诊断（非调参通道）
 
-在 CCS 中导入本目录工程，使用 MSPM0 SDK 2.11.00.07 和 `targetConfigs/MSPM0G3507.ccxml` 进行当前调试。首次上电或试验前请让车轮悬空或断开电机主电源。
+PCB `USART2` 为 `9600 8N1`：`TX2/PB15 → USB-TTL RXD`、`RX2/PB16 → USB-TTL TXD`、GND 对 GND；不要向板子接 USB-TTL 电源。复位后会发送一次 `UART2 READY\r\n`，收到字节会原样回显。该通道不会接受参数、不会启动电机，也不会解除故障。

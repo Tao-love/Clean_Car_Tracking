@@ -70,6 +70,8 @@ try {
         (Join-Path $Output 'crc16.o'),
         (Join-Path $Output 'ring_buffer.o'),
         (Join-Path $Output 'uart_echo.o'),
+        (Join-Path $Output 'manual_tuning.o'),
+        (Join-Path $Output 'control_params.o'),
         (Join-Path $Output 'speed_pi.o'),
         (Join-Path $Output 'line_control.o'),
         (Join-Path $Output 'key_start.o'),

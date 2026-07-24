@@ -76,7 +76,7 @@ LineControlOutput LineControl_Step(LineControlState *state,
      * 3. 得到 delta（左右速度差），并限制其最大值。
      * 4. 用基础速度 baseSpeed 分别减/加 delta，得到左右轮目标速度。
      *
-     * delta 为正：左轮目标变慢、右轮目标变快；delta 为负则相反。
+     * delta 为正：左轮目标变快、右轮目标变慢，使车向右修正；delta 为负则相反。
      * lineKpQ16、lineKdQ16 是参数的内部格式；普通调参看 lineKp、lineKd 即可。
      */
     deltaQ16 = ((int64_t) params->lineKpQ16 * sample->error) +
@@ -86,10 +86,10 @@ LineControlOutput LineControl_Step(LineControlState *state,
     /* 保存给调用者查看的左右速度差。 */
     result.deltaSpeed = (int16_t) delta;
     result.leftTarget = LineControl_ClampTarget(
-        (int32_t) params->baseSpeed - delta,
+        (int32_t) params->baseSpeed + delta,
         params->maxTargetSpeed, &result.targetSaturated);
     result.rightTarget = LineControl_ClampTarget(
-        (int32_t) params->baseSpeed + delta,
+        (int32_t) params->baseSpeed - delta,
         params->maxTargetSpeed, &result.targetSaturated);
     /* 返回左右速度 PI 下一步要使用的目标速度，以及是否有目标速度被限幅。 */
     return result;

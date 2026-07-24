@@ -11,9 +11,11 @@
 #include <stdint.h>
 
 #include "autotune_types.h"
+#include "control_params.h"
 #include "crc16.h"
 #include "key_start.h"
 #include "line_control.h"
+#include "manual_tuning.h"
 #include "ring_buffer.h"
 #include "safety_guard.h"
 #include "speed_pi.h"
@@ -263,6 +265,18 @@ static int Test_SpeedPI(void)
     return 0;
 }
 
+static int Test_ManualTuning(void)
+{
+    const ControlParams *params = ManualTuning_GetParams();
+
+    if ((params == 0) ||
+        (ControlParams_Validate(params) != PARAMS_VALID) ||
+        (params->baseSpeed != 5) || (params->maxPwm != 200)) {
+        return 23;
+    }
+    return 0;
+}
+
 static int Test_LineControl(void)
 {
     LineControlState state = {0, 0, false};
@@ -277,8 +291,8 @@ static int Test_LineControl(void)
     params.maxDeltaSpeed = 10;
     params.derivativeLimit = 1000;
     output = LineControl_Step(&state, &sample, &params);
-    if ((output.deltaSpeed != 10) || (output.leftTarget != 10) ||
-        (output.rightTarget != 25) || !output.targetSaturated) {
+    if ((output.deltaSpeed != 10) || (output.leftTarget != 25) ||
+        (output.rightTarget != 10) || !output.targetSaturated) {
         return 30;
     }
 
@@ -292,7 +306,7 @@ static int Test_LineControl(void)
     sample.error = 200;
     output = LineControl_Step(&state, &sample, &params);
     if ((state.filteredDerivative != 20) || (output.deltaSpeed != 20) ||
-        (output.leftTarget != -20) || (output.rightTarget != 20) ||
+        (output.leftTarget != 20) || (output.rightTarget != -20) ||
         output.targetSaturated) {
         return 31;
     }
@@ -463,6 +477,10 @@ int main(void)
         return result;
     }
     result = Test_SpeedPI();
+    if (result != 0) {
+        return result;
+    }
+    result = Test_ManualTuning();
     if (result != 0) {
         return result;
     }
