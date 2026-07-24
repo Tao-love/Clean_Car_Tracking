@@ -8,6 +8,7 @@ $ErrorActionPreference = 'Stop'
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 $MainSource = Get-Content -LiteralPath (Join-Path $ProjectRoot 'src\main.c') -Raw
 $TrialSource = Get-Content -LiteralPath (Join-Path $ProjectRoot 'src\trial_manager.c') -Raw
+$TuningSource = Get-Content -LiteralPath (Join-Path $ProjectRoot 'src\manual_tuning.c') -Raw
 
 function Require-Match([string]$Text, [string]$Pattern, [string]$Message) {
     if ($Text -notmatch $Pattern) {
@@ -29,5 +30,7 @@ Require-Match $MainSource 'TrialManager_Start\(tick,\s*TRIAL_MODE_LINE_FOLLOW,\s
     'KEY1 必须启动零命令的 TRIAL_MODE_LINE_FOLLOW。'
 Require-Match $TrialSource 'gStatus\.state = \(reason == STOP_REASON_TRIAL_COMPLETE\) \?\s*SYSTEM_STATE_IDLE : state;' `
     '只有正常完成的试验应回到 IDLE；故障必须保留 FAULT。'
+Require-Match $TuningSource '\(Q16_ONE / 128\), \(Q16_ONE / 1024\),' `
+    '当前两倍基础速度应使用 Q16_ONE/128 的循线 Kp 和 Q16_ONE/1024 的线 Kd。'
 
 Write-Host 'Manual tuning source contract passed.'

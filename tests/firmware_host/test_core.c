@@ -271,7 +271,10 @@ static int Test_ManualTuning(void)
 
     if ((params == 0) ||
         (ControlParams_Validate(params) != PARAMS_VALID) ||
-        (params->baseSpeed != 5) || (params->maxPwm != 200)) {
+        (params->baseSpeed != 10) ||
+        (params->lineKpQ16 != (Q16_ONE / 128)) ||
+        (params->lineKdQ16 != (Q16_ONE / 1024)) ||
+        (params->maxPwm != 200)) {
         return 23;
     }
     return 0;
