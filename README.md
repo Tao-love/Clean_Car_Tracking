@@ -1,56 +1,97 @@
-# MPU_Hand_Car：MSPM0G3507 手动烧录调参固件
+# Clean_Car：MSPM0G3507 单一循线固件
 
-这是不依赖蓝牙或串口调参的 MSPM0G3507 小车固件。每次改变参数后，重新编译、烧录，再用 KEY1 完成一次最多 5 秒的本地循线试验。UART2 仍只是原样回显诊断通道，不参与启动或调参。
+本工程只运行 KEY1 启动的自动循线：八路数字灰度位置误差经过循线 PD，形成左右目标速度；左右速度 PI 与前馈根据编码器速度计算 PWM；MPU6050 Z 轴角速度提供转弯阻尼。控制周期为 6.667 ms（150 Hz），每轮最多 1500 个控制 tick，约 10 秒。
 
-## 已实现的运行路径
+## 当前运行方式
 
-```text
-编辑 src/manual_tuning.c
-→ 编译、烧录、上电
-→ 放车在线上，短按 KEY1
-→ 100 Hz 循线 + 左右速度 PI（最多 5 秒）
-→ 正常结束：可再次按 KEY1
-→ 安全故障：停车并锁存，必须复位/重新上电后再试
-```
+上电初始化完成后电机保持停车：
 
-- `KEY1` 是 `PA23` 上拉输入，按下沿只触发一次 `TRIAL_MODE_LINE_FOLLOW`。左右目标速度由 `baseSpeed` 与循线 PD 计算，KEY1 不再启动固定 `6/6` 的轮速试验。
-- 本次上电的参数只来自 [`src/manual_tuning.c`](src/manual_tuning.c)。旧 Flash 参数不会被读取或覆盖源码表。
-- 正常运行满 500 个 10 ms tick（5 秒）后立即回到 `IDLE`，可再次按 KEY1。丢线、堵转、控制超期等故障保持 `FAULT`，KEY1 不会清除故障；先排查后复位。
-- 100 Hz 控制、八路灰度、编码器速度 PI、5 秒上限、丢线/堵转/控制超期保护均保留。
-- `maxPwm` 的固件上限是 `400`，PWM 满量程是 `1600`。当前手动表为 `200`；在完成低速验证前不要增大它。
+1. IDLE 时按下并松开 KEY1，启动一轮全新的循线。
+2. RUNNING 时再次按下 KEY1，立即统一停车并返回 IDLE。
+3. 停车会清除 1500 tick 计时、左右速度 PI、循线 PD 和本轮最后灰度误差；必须再次按 KEY1 才会重新启动。
+4. 正常运行到第 1500 个 tick 后立即停车并回到 IDLE，可再次按 KEY1。
 
-## 唯一需要编辑的参数表
+灰度有效时使用当前误差；灰度无效时持续使用本轮最后一次有效误差。本轮尚未出现有效样本时使用误差 0，因此车辆仍按基础速度前进，直到重新识线、KEY1 停车或达到 10 秒上限。
 
-只编辑 [`src/manual_tuning.c`](src/manual_tuning.c)，不要改 `syscfg_gen/`、`Debug/` 或 Flash 槽地址。增益是 Q16.16：`1.0 = Q16_ONE = 65536`；`baseSpeed`、`maxTargetSpeed` 和 `maxDeltaSpeed` 的单位均为“每 10 ms 编码器计数”，不是 PWM 百分比。
+当前没有丢线、堵转、控制超期或故障锁存状态机。仍保留统一 `Motor_Stop()`、目标速度限幅、差速限幅、速度 PI 积分/PWM 限幅、`maxPwm <= 400` 固件范围检查和 10 秒运行上限。丢线延续是有意行为，不等同于安全停车。
 
-当前保守基线：
+核心文件：
 
-- 左/右速度：`Kp=8/8`、`Ki=0/0`、前馈=`28/24`。
-- 循线：`Kp=0`、`Kd=0`，因此它是安全的“无转向修正”基线，**不能据此期待完成循线**；首次落地前由调参记录给出小的非零 `Kp`，`Kd` 先保持 0。
-- `baseSpeed=5`、`maxPwm=200`、堵转阈值=`PWM 80` 且速度 `<1`。
+- `src/line_run.c`：五个运行 API、KEY1 运行状态、1500 tick 上限和灰度误差延续。
+- `src/control_params.c`：唯一固定实车参数表及启动前范围检查。
+- `src/line_control.c`：循线 PD、差速斜率限制和单轮目标限幅。
+- `src/speed_pi.c`：左右速度 PI、前馈、积分限幅和 PWM 限幅。
+- `src/mpu6050.c`：MPU6050 初始化、校准与转弯阻尼；设备不可用时阻尼为 0。
+- `empty.syscfg`：全部引脚、时钟和外设配置的唯一可编辑源。
 
-## 每轮手动调参流程
+## 固定控制参数
 
-1. 在 `src/manual_tuning.c` 只改本轮有依据的一组参数，记录实际值；编译并烧录。烧录前确认电池状态、接线、轮胎、灰度高度和赛道没有变化。
-2. 首次或输出增大后先悬空确认两轮均能转且正向 PWM 的编码器速度为正；发现反向、卡轮或无力，先处理电机/编码器/机械问题，不增大 PID。
-3. 落地时把车放在黑线上，朝向赛道前进方向；短按 KEY1，只观察一轮，最长 5 秒。方向反了或明显失控立刻断开电机电源。
-4. 先固定低 `baseSpeed`，调循线 `Kp` 到能回到线附近；再少量加入 `Kd` 抑制摆动；最后逐档提高 `baseSpeed`。速度 PI、前馈或 PWM 饱和异常要先回到低输出排查。
-5. 正常结束可再次按 KEY1。若约 0.15 秒停车，优先检查是否丢线；若约 0.3 秒停车，优先检查堵转、轮子和电源；故障后先复位再进行下一轮。
+增益使用 Q16.16；速度单位是“每 6.667 ms 目标编码器计数”，不是 PWM 百分比。PWM 满量程为 1600。
 
-每次反馈请包含：模式（KEY1 手动循线/车轮悬空）、落地与起点、实际烧录的 `baseSpeed`、左右前馈、左右 Kp/Ki、循线 Kp/Kd、`maxPwm`，以及运行时长、左右轮现象、循线现象和停止前表现。
+| 参数 | 当前值 |
+| --- | ---: |
+| 左速度 Kp / Ki / 前馈 | 12 / 0 / 42 |
+| 右速度 Kp / Ki / 前馈 | 12 / 0 / 34.5 |
+| 循线 Kp / Kd | 1/70 / 1/320 |
+| D 项滤波系数 | 5/8 |
+| 速度积分限幅 | 10000 |
+| baseSpeed | 27 |
+| maxTargetSpeed / maxDeltaSpeed | 67 / 67 |
+| maxPwm | 300（固件硬上限 400） |
+| derivativeLimit | 2333 |
 
-## 编译验证与烧录
+修改参数只编辑 `src/control_params.c`，随后必须重新执行严格验证、编译和烧录。不要手工修改 `syscfg_gen/`。
 
-离线验证（不烧录、不打开串口、不驱动电机）：
+## 保留的基础硬件配置
+
+OLED、蜂鸣器、超声波、LED、KEY2～KEY4、KEY1 和 MPU6050 的 SysConfig 基础配置均保留。UART2 也只保留 PB15/PB16、9600 8N1 基础配置；固件不启用其 RX 中断、不建立队列，也不收发运行数据。
+
+唯一烧录与调试入口是 `targetConfigs/MSPM0G3507.ccxml` 中的 TI XDS110。`.ccsproject` 内的 `projectspec.basic-1` 只是 TI 官方来源模板标识，不是工程名或第二个烧录入口。
+
+## 离线验证与构建
+
+在 PowerShell 中运行：
 
 ```powershell
-cd E:\TI_work\TI_Project\MPU_Hand_Car
-powershell -ExecutionPolicy Bypass -File .\tests\verify_manual_tuning.ps1
-powershell -ExecutionPolicy Bypass -File .\tools\verify.ps1
+cd E:\TI_work\TI_Project\Clean_Car
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\verify.ps1
+Get-ChildItem .\tests\verify_*.ps1 | ForEach-Object {
+    powershell -NoProfile -ExecutionPolicy Bypass -File $_.FullName
+}
+git diff --check
 ```
 
-使用 CCS 导入本目录工程；可编辑的 SysConfig 源为 `empty.syscfg`，生成文件仅供读取。`targetConfigs/MSPM0G3507.ccxml` 当前配置为 XDS110；若使用 CH340 UART BSL 下载，请使用经过确认的 UART BSL 连接配置和厂商提供的 BOOT/RESET 时序。UART BSL 不提供在线调试。
+`tools/verify.ps1` 使用正式 SysConfig CLI 从 `empty.syscfg` 重新生成 `syscfg_gen/*`，再用 TI Arm Clang 的 `-Wall -Wextra -Werror` 编译链接全部固件及契约测试。成功输出为：
 
-## UART2 诊断（非调参通道）
+```text
+.build\verify\Clean_Car.out
+```
 
-PCB `USART2` 为 `9600 8N1`：`TX2/PB15 → USB-TTL RXD`、`RX2/PB16 → USB-TTL TXD`、GND 对 GND；不要向板子接 USB-TTL 电源。复位后会发送一次 `UART2 READY\r\n`，收到字节会原样回显。该通道不会接受参数、不会启动电机，也不会解除故障。
+SysConfig 对 PWM 在 STOP/STANDBY 模式下不保持寄存器的提示属于 TI 外设信息；本固件没有进入这些低功耗模式。验证脚本不烧录、不连接串口，也不启动电机。
+
+## 实车验证顺序
+
+1. 首次或参数变大后先让车轮悬空，使用 XDS110 烧录 `Clean_Car.out`；确认上电不转、KEY1 能启动、运行中再按一次能立即停车。
+2. 悬空等待一轮，确认约 10 秒自动停车；方向相反、卡轮、异响或明显失控时立即断开电机电源。
+3. 再把车放到黑线上低风险落地验证循线。主动让灰度短暂无效，确认车辆延续最后一次有效误差，并准备随时按 KEY1 或断开电机电源。
+4. 源码/编译验证不能代替以上实车步骤；只有实际观察后才能确认机械方向、传感器逻辑和循线效果。
+
+## Git 留存与恢复
+
+- `clean-car-working-line-baseline`：简化前“实车巡线成功”的完整快照。
+- `clean-car-line-only-v1`：本次单一循线版本完成并验证后的标签。
+- 当前实施分支：`clean-car-simplification`。
+
+恢复单个旧文件：
+
+```powershell
+git restore --source clean-car-working-line-baseline -- path\to\file
+```
+
+完整回到简化前并保留当前分支：
+
+```powershell
+git switch -c restore-working-line clean-car-working-line-baseline
+```
+
+恢复某一整组功能时，先用 `git log --oneline clean-car-working-line-baseline..clean-car-line-only-v1` 找到对应删除提交，再在新恢复分支上执行 `git revert <提交>`。当前未推送远端；网络恢复后再决定远端仓库位置。
