@@ -1,12 +1,12 @@
 // ----- AI
 /*
- * UART2 原样回显应用入口。
+ * 单一循线应用入口。
  *
- * 职责：按安全顺序初始化硬件，调度非阻塞协议和 6.667 ms 任务。
- * 依赖：SysConfig、motor、UART transport、uart_echo。
+ * 职责：按安全顺序初始化硬件并调度 6.667 ms 控制任务。
+ * 依赖：SysConfig、motor、trial_manager。
  * 上下文：main 主循环；TIMG0 ISR 只递增 tick。
  * 数据单位：gControlTick 每单位 6.667 ms。
- * 硬件副作用：初始化外设、开启 PWM 计数器（比较值为 0）、UART2 和 TIMG0。
+ * 硬件副作用：初始化外设、开启 PWM 计数器（比较值为 0）和 TIMG0。
  * 故障输出：本阶段不启动电机；后续由 safety_guard 锁存故障。
  */
 
@@ -19,10 +19,6 @@
 #include "motor.h"
 #include "mpu6050.h"
 #include "trial_manager.h"
-#include "uart_echo.h"
-#include "uart_transport.h"
-
-#define UART_ECHO_BYTE_BUDGET (64U)
 
 volatile uint32_t gControlTick = 0U;
 
@@ -32,7 +28,7 @@ static KeyStartState gKey1StartState;
 int main(void)
 {
     uint32_t lastProcessedTick = 0U;
-    /* 按 SysConfig 生成配置初始化时钟、GPIO、PWM、UART 和定时器；此时 PWM 默认比较值为 0。 */
+    /* 按 SysConfig 生成配置初始化时钟、GPIO、PWM 和定时器；此时 PWM 默认比较值为 0。 */
     SYSCFG_DL_init();
     MPU6050_InitAndCalibrate();
     /* Motor_Init 的第一个硬件动作是同时清零两路 PWM 和四个方向脚。 */
@@ -40,8 +36,6 @@ int main(void)
     /* 手动调参版本仅使用 src/manual_tuning.c 中随固件烧录的参数表。 */
     TrialManager_Init(0U, 0, 0U);
     KeyStart_Init(&gKey1StartState);
-    UART_Transport_Init();
-    (void) UART_Echo_SendStartupBeacon(UART_Transport_Write);
 
     /* 允许 TIMG0 的 6.667 ms 周期中断进入 CPU，ISR 只递增单调 tick。 */
     NVIC_EnableIRQ(TIMER_CONTROL_INST_INT_IRQN);
@@ -50,10 +44,6 @@ int main(void)
 
     while (1) {
         uint32_t currentTick;
-
-        /* 每次最多回显 64 个 UART 字节，避免噪声流长时间占用主循环。 */
-        (void) UART_Echo_Poll(UART_Transport_ReadByte,
-            UART_Transport_Write, UART_ECHO_BYTE_BUDGET);
 
         currentTick = gControlTick;
         if (currentTick != lastProcessedTick) {

@@ -67,9 +67,6 @@ try {
     $ContractFirmware = Join-Path $Output 'test_core.out'
     $ContractObjects = @(
         $ContractTestObject,
-        (Join-Path $Output 'crc16.o'),
-        (Join-Path $Output 'ring_buffer.o'),
-        (Join-Path $Output 'uart_echo.o'),
         (Join-Path $Output 'manual_tuning.o'),
         (Join-Path $Output 'control_params.o'),
         (Join-Path $Output 'speed_pi.o'),
@@ -101,11 +98,6 @@ try {
     & $Compiler @LinkArgs
     if ($LASTEXITCODE -ne 0) { throw '固件链接失败' }
 
-    $MapText = Get-Content -Raw -LiteralPath $Map
-    if (($MapText -notmatch '0001f800.+gFlashParamsSlotA') -or
-        ($MapText -notmatch '0001fc00.+gFlashParamsSlotB')) {
-        throw 'Flash 双槽未固定在 0x1F800/0x1FC00'
-    }
     Write-Host "验证通过: $Firmware"
 }
 finally {

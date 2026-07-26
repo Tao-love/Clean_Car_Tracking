@@ -263,16 +263,6 @@ extern "C" {
 #define GPIO_LED_LED2_IOMUX                                      (IOMUX_PINCM47)
 
 
-/* Defines for TRNG */
-/*
- * The TRNG interrupt is part of INT_GROUP1. Refer to the TRM for more details
- * on interrupt grouping
- */
-#define TRNG_INT_IRQN                                            (TRNG_INT_IRQn)
-#define TRNG_INT_IIDX                            (DL_INTERRUPT_GROUP1_IIDX_TRNG)
-
-
-
 /* clang-format on */
 
 void SYSCFG_DL_init(void);
@@ -285,7 +275,6 @@ void SYSCFG_DL_I2C_OLED_init(void);
 void SYSCFG_DL_I2C_MPU6050_init(void);
 void SYSCFG_DL_UART_DEBUG_init(void);
 
-void SYSCFG_DL_TRNG_init(void);
 
 bool SYSCFG_DL_saveConfiguration(void);
 bool SYSCFG_DL_restoreConfiguration(void);

@@ -1,8 +1,8 @@
 // ----- AI
 /*
- * 协议基础模块的纯 C 测试契约。
+ * 控制基础模块的纯 C 测试契约。
  *
- * 该文件不访问 MSPM0 寄存器，用于检查 CRC、环形缓冲、控制数学、安全计时和统计边界。
+ * 该文件不访问 MSPM0 寄存器，用于检查控制数学、安全计时和统计边界。
  * 本机尚无可执行 ARM 代码的模拟器，因此 CI 至少将它严格交叉编译；
  * 返回值检查在硬件单元测试固件中可直接复用。
  */
@@ -12,31 +12,16 @@
 
 #include "autotune_types.h"
 #include "control_params.h"
-#include "crc16.h"
 #include "key_start.h"
 #include "line_control.h"
 #include "manual_tuning.h"
-#include "ring_buffer.h"
 #include "safety_guard.h"
 #include "speed_pi.h"
 #include "trial_stats.h"
-#include "uart_echo.h"
 
 static uint16_t gMotorStopCalls;
 static uint16_t gControlResetCalls;
 static volatile int gTestResult;
-static const uint8_t *gEchoInput;
-static uint16_t gEchoInputLength;
-static uint16_t gEchoInputIndex;
-static uint8_t gEchoOutput[4];
-static uint16_t gEchoOutputLength;
-static uint16_t gEchoWriteAttempts;
-static bool gEchoWritesAreOneByteHighPriority;
-static bool gEchoRejectFirstWrite;
-static uint8_t gStartupBeaconOutput[16];
-static uint16_t gStartupBeaconLength;
-static uint16_t gStartupBeaconWriteAttempts;
-static bool gStartupBeaconHighPriority;
 
 /* 仅供离线契约 ELF 链接占位，不是可烧录的 MSPM0 启动向量表。 */
 void (*const interruptVectors[])(void)
@@ -70,173 +55,6 @@ void Motor_Stop(void)
 static void Test_ResetControl(void)
 {
     gControlResetCalls++;
-}
-
-static int Test_CRC(void)
-{
-    static const uint8_t standardVector[] = "123456789";
-    static const uint8_t frameBody[] = {
-        0x01U, 0x01U, 0x01U, 0x34U, 0x12U, 0x03U, 0x00U, 0x61U, 0x62U, 0x63U
-    };
-
-    if (CRC16_Calculate(standardVector, 9U) != 0x29B1U) {
-        return 1;
-    }
-    if (CRC16_Calculate(frameBody, sizeof(frameBody)) != 0x5807U) {
-        return 2;
-    }
-    return 0;
-}
-
-static int Test_RingBuffer(void)
-{
-    uint8_t storage[4];
-    uint8_t value = 0U;
-    RingBuffer buffer;
-
-    RingBuffer_Init(&buffer, storage, sizeof(storage));
-    if (!RingBuffer_IsEmpty(&buffer) || RingBuffer_Count(&buffer) != 0U) {
-        return 10;
-    }
-    if (!RingBuffer_PushFromISR(&buffer, 1U) ||
-        !RingBuffer_PushFromISR(&buffer, 2U) ||
-        !RingBuffer_PushFromISR(&buffer, 3U)) {
-        return 11;
-    }
-    if (RingBuffer_PushFromISR(&buffer, 4U)) {
-        return 12;
-    }
-    if (!RingBuffer_Pop(&buffer, &value) || value != 1U) {
-        return 13;
-    }
-    if (!RingBuffer_PushFromISR(&buffer, 4U)) {
-        return 14;
-    }
-    if (RingBuffer_Count(&buffer) != 3U) {
-        return 15;
-    }
-    if (!RingBuffer_Pop(&buffer, &value) || value != 2U ||
-        !RingBuffer_Pop(&buffer, &value) || value != 3U ||
-        !RingBuffer_Pop(&buffer, &value) || value != 4U) {
-        return 16;
-    }
-    if (RingBuffer_Pop(&buffer, &value) || !RingBuffer_IsEmpty(&buffer)) {
-        return 17;
-    }
-    return 0;
-}
-
-static void TestEcho_Reset(const uint8_t *input, uint16_t inputLength)
-{
-    gEchoInput = input;
-    gEchoInputLength = inputLength;
-    gEchoInputIndex = 0U;
-    gEchoOutputLength = 0U;
-    gEchoWriteAttempts = 0U;
-    gEchoWritesAreOneByteHighPriority = true;
-    gEchoRejectFirstWrite = false;
-}
-
-static bool TestEcho_Read(uint8_t *value)
-{
-    if ((value == 0) || (gEchoInputIndex >= gEchoInputLength)) {
-        return false;
-    }
-    *value = gEchoInput[gEchoInputIndex];
-    gEchoInputIndex++;
-    return true;
-}
-
-static bool TestEcho_Write(
-    const uint8_t *data, uint16_t length, bool highPriority)
-{
-    gEchoWriteAttempts++;
-    if ((data == 0) || (length != 1U) || !highPriority) {
-        gEchoWritesAreOneByteHighPriority = false;
-        return false;
-    }
-    if (gEchoRejectFirstWrite && (gEchoWriteAttempts == 1U)) {
-        return false;
-    }
-    if (gEchoOutputLength >= sizeof(gEchoOutput)) {
-        return false;
-    }
-    gEchoOutput[gEchoOutputLength] = data[0];
-    gEchoOutputLength++;
-    return true;
-}
-
-static int Test_UartEcho(void)
-{
-    static const uint8_t input[] = { 'p', 'i', 'n' };
-    uint16_t consumed;
-
-    TestEcho_Reset(input, sizeof(input));
-    consumed = UART_Echo_Poll(TestEcho_Read, TestEcho_Write, 2U);
-    if ((consumed != 2U) || (gEchoOutputLength != 2U) ||
-        (gEchoOutput[0] != 'p') || (gEchoOutput[1] != 'i')) {
-        return 55;
-    }
-    consumed = UART_Echo_Poll(TestEcho_Read, TestEcho_Write, 64U);
-    if ((consumed != 1U) || (gEchoOutputLength != 3U) ||
-        (gEchoOutput[2] != 'n') || !gEchoWritesAreOneByteHighPriority) {
-        return 56;
-    }
-    TestEcho_Reset(input, sizeof(input));
-    gEchoRejectFirstWrite = true;
-    consumed = UART_Echo_Poll(TestEcho_Read, TestEcho_Write, 64U);
-    if ((consumed != 3U) || (gEchoWriteAttempts != 3U) ||
-        (gEchoOutputLength != 2U) || (gEchoOutput[0] != 'i') ||
-        (gEchoOutput[1] != 'n')) {
-        return 57;
-    }
-    return 0;
-}
-
-static void TestStartupBeacon_Reset(void)
-{
-    gStartupBeaconLength = 0U;
-    gStartupBeaconWriteAttempts = 0U;
-    gStartupBeaconHighPriority = false;
-}
-
-static bool TestStartupBeacon_Write(
-    const uint8_t *data, uint16_t length, bool highPriority)
-{
-    uint16_t index;
-
-    gStartupBeaconWriteAttempts++;
-    gStartupBeaconHighPriority = highPriority;
-    if ((data == 0) || (length > sizeof(gStartupBeaconOutput))) {
-        return false;
-    }
-    for (index = 0U; index < length; index++) {
-        gStartupBeaconOutput[index] = data[index];
-    }
-    gStartupBeaconLength = length;
-    return true;
-}
-
-static int Test_UartStartupBeacon(void)
-{
-    static const uint8_t expected[] = "UART2 READY\r\n";
-    uint16_t index;
-
-    TestStartupBeacon_Reset();
-    if (!UART_Echo_SendStartupBeacon(TestStartupBeacon_Write)) {
-        return 58;
-    }
-    if ((gStartupBeaconWriteAttempts != 1U) ||
-        !gStartupBeaconHighPriority ||
-        (gStartupBeaconLength != (sizeof(expected) - 1U))) {
-        return 59;
-    }
-    for (index = 0U; index < gStartupBeaconLength; index++) {
-        if (gStartupBeaconOutput[index] != expected[index]) {
-            return 60;
-        }
-    }
-    return 0;
 }
 
 static int Test_SpeedPI(void)
@@ -469,24 +287,7 @@ static int Test_TrialStats(void)
 
 int main(void)
 {
-    int result = Test_CRC();
-
-    if (result != 0) {
-        return result;
-    }
-    result = Test_RingBuffer();
-    if (result != 0) {
-        return result;
-    }
-    result = Test_UartEcho();
-    if (result != 0) {
-        return result;
-    }
-    result = Test_UartStartupBeacon();
-    if (result != 0) {
-        return result;
-    }
-    result = Test_SpeedPI();
+    int result = Test_SpeedPI();
     if (result != 0) {
         return result;
     }
