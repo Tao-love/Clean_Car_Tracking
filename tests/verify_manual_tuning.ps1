@@ -30,7 +30,19 @@ Require-Match $MainSource 'TrialManager_Start\(tick,\s*TRIAL_MODE_LINE_FOLLOW,\s
     'KEY1 必须启动零命令的 TRIAL_MODE_LINE_FOLLOW。'
 Require-Match $TrialSource 'gStatus\.state = \(reason == STOP_REASON_TRIAL_COMPLETE\) \?\s*SYSTEM_STATE_IDLE : state;' `
     '只有正常完成的试验应回到 IDLE；故障必须保留 FAULT。'
-Require-Match $TuningSource '\(Q16_ONE / 128\), \(Q16_ONE / 1024\),' `
-    '当前两倍基础速度应使用 Q16_ONE/128 的循线 Kp 和 Q16_ONE/1024 的线 Kd。'
+Require-Match $TuningSource '12L \* Q16_ONE, 0, 42L \* Q16_ONE,' `
+    '左速度参数必须匹配 150 Hz 换算。'
+Require-Match $TuningSource '12L \* Q16_ONE, 0, \(69L \* Q16_ONE / 2\),' `
+    '右速度参数必须匹配 150 Hz 换算。'
+Require-Match $TuningSource '\(Q16_ONE / 84\), \(Q16_ONE / 448\),' `
+    '循线 PD 必须匹配 150 Hz 换算。'
+Require-Match $TuningSource '\(5L \* Q16_ONE / 8\), 10000,' `
+    'D 滤波时间常数必须保持。'
+Require-Match $TuningSource '27, 67, 67,' `
+    '目标速度必须换算为每 6.667 ms 计数。'
+Require-Match $TuningSource '300, 2333,' `
+    'D 差分限幅必须匹配 150 Hz。'
+Require-Match $TuningSource '10U, 5U' `
+    '控制超期限值必须保持近似时间。'
 
 Write-Host 'Manual tuning source contract passed.'

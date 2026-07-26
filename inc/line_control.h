@@ -2,8 +2,8 @@
 /*
  * 八路数字灰度循线 PD 模块。
  * 职责：对有效位置误差做限幅差分和一阶低通，计算左右目标速度。
- * 依赖：LineSensorSample、ControlParams。上下文：100 Hz 主循环任务。
- * 单位：error=-3500..3500，输出速度为每 10 ms 编码器计数。
+ * 依赖：LineSensorSample、ControlParams。上下文：150 Hz 主循环任务。
+ * 单位：error=-3500..3500，输出速度为每 6.667 ms 编码器计数。
  * 硬件副作用：无。故障输出：sensorValid=false 交由 safety_guard 计时。
  */
 
@@ -25,7 +25,7 @@ typedef struct {
 } LineControlState;
 
 typedef struct {
-    /* 返回给左、右速度 PI 的目标速度，单位为“每 10 ms 编码器计数”，不是 PWM。 */
+    /* 返回给左、右速度 PI 的目标速度，单位为“每 6.667 ms 编码器计数”，不是 PWM。 */
     int16_t leftTarget;
     int16_t rightTarget;
     /* 左右目标速度的差值：正值时左慢右快，负值时左快右慢。 */

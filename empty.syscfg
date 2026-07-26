@@ -175,7 +175,7 @@ TIMER_CONTROL.$name = "TIMER_CONTROL";
 TIMER_CONTROL.interrupts = ["ZERO"];
 TIMER_CONTROL.timerClkSrc = "LFCLK";
 TIMER_CONTROL.timerMode = "PERIODIC";
-TIMER_CONTROL.timerPeriod = "10 ms";
+TIMER_CONTROL.timerPeriod = "6.667 ms";
 TIMER_CONTROL.peripheral.$assign = "TIMG0";
 
 UART_DEBUG.$name = "UART_DEBUG";

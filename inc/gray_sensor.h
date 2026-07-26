@@ -2,7 +2,7 @@
 /*
  * 八路数字灰度采样模块。
  * 职责：同一次函数调用读取 8 个 GPIO，生成位图、激活数和加权中心误差。
- * 依赖：SysConfig GPIO_LINE。上下文：100 Hz 主循环任务。
+ * 依赖：SysConfig GPIO_LINE。上下文：150 Hz 主循环任务。
  * 硬件副作用：只读 GPIO。故障输出：全未触发时 valid=false，不沿用旧误差。
  */
 

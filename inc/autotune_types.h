@@ -4,7 +4,7 @@
  *
  * 职责：统一状态、故障、停止原因、控制参数和每 tick 样本的含义。
  * 依赖：标准整数和布尔类型。硬件副作用：无。故障输出：由枚举值表达。
- * 缩放：所有增益为有符号 Q16.16；速度单位为每 10 ms 编码器计数。
+ * 缩放：所有增益为有符号 Q16.16；速度单位为每 6.667 ms 编码器计数。
  */
 
 #ifndef AUTOTUNE_TYPES_H
@@ -30,25 +30,23 @@ typedef enum {
     STOP_REASON_BOOT = 1,
     STOP_REASON_TRIAL_COMPLETE = 2,
     STOP_REASON_ABORTED = 3,
-    STOP_REASON_COMM_TIMEOUT = 4,
-    STOP_REASON_LINE_LOST = 5,
-    STOP_REASON_STALL_LEFT = 6,
-    STOP_REASON_STALL_RIGHT = 7,
-    STOP_REASON_CONTROL_OVERRUN = 8,
-    STOP_REASON_PARAMETER_ERROR = 9,
-    STOP_REASON_FLASH_ERROR = 10
+    STOP_REASON_LINE_LOST = 4,
+    STOP_REASON_STALL_LEFT = 5,
+    STOP_REASON_STALL_RIGHT = 6,
+    STOP_REASON_CONTROL_OVERRUN = 7,
+    STOP_REASON_PARAMETER_ERROR = 8,
+    STOP_REASON_FLASH_ERROR = 9
 } StopReason;
 
 typedef enum {
     FAULT_NONE = 0,
-    FAULT_COMM_TIMEOUT = 1,
-    FAULT_LINE_LOST = 2,
-    FAULT_STALL_LEFT = 3,
-    FAULT_STALL_RIGHT = 4,
-    FAULT_CONTROL_OVERRUN = 5,
-    FAULT_PARAMETER = 6,
-    FAULT_FLASH = 7,
-    FAULT_INTERNAL = 8
+    FAULT_LINE_LOST = 1,
+    FAULT_STALL_LEFT = 2,
+    FAULT_STALL_RIGHT = 3,
+    FAULT_CONTROL_OVERRUN = 4,
+    FAULT_PARAMETER = 5,
+    FAULT_FLASH = 6,
+    FAULT_INTERNAL = 7
 } FaultCode;
 
 typedef enum {

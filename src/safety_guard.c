@@ -1,5 +1,5 @@
 // ----- AI
-/* 400 ms 通信、150 ms 丢线、300 ms 堵转与控制超期联锁。 */
+/* 150 ms 丢线、300 ms 堵转与控制超期联锁。 */
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -17,7 +17,6 @@ static uint16_t SafetyGuard_IncrementSaturating(uint16_t value);
 void SafetyGuard_Init(SafetyControlResetHandler resetHandler, uint32_t tick)
 {
     gResetHandler = resetHandler;
-    gSafetyStatus.lastValidFrameTick = tick;
     gSafetyStatus.lineLostTicks = 0U;
     gSafetyStatus.leftStallTicks = 0U;
     gSafetyStatus.rightStallTicks = 0U;
@@ -27,7 +26,6 @@ void SafetyGuard_Init(SafetyControlResetHandler resetHandler, uint32_t tick)
 
 void SafetyGuard_BeginTrial(uint32_t tick)
 {
-    gSafetyStatus.lastValidFrameTick = tick;
     gSafetyStatus.lineLostTicks = 0U;
     gSafetyStatus.leftStallTicks = 0U;
     gSafetyStatus.rightStallTicks = 0U;
@@ -37,25 +35,12 @@ void SafetyGuard_BeginTrial(uint32_t tick)
     gSafetyStatus.stopTick = tick;
 }
 
-void SafetyGuard_OnValidFrame(uint32_t tick)
-{
-    gSafetyStatus.lastValidFrameTick = tick;
-}
-
 bool SafetyGuard_Evaluate(uint32_t tick, const ControlSample *sample,
-    const ControlParams *params, bool requireLine, bool requireCommHeartbeat)
+    const ControlParams *params, bool requireLine)
 {
     /* ===== 参数完整性保护：控制样本或活动参数无效时立即停车 ===== */
     if ((sample == 0) || (params == 0)) {
         SafetyGuard_Stop(STOP_REASON_PARAMETER_ERROR, FAULT_INTERNAL, tick);
-        return true;
-    }
-
-    /* ===== 蓝牙通信心跳保护：仅蓝牙来源的试验要求持续收到合法帧 ===== */
-    if (requireCommHeartbeat &&
-        ((uint32_t) (tick - gSafetyStatus.lastValidFrameTick) >=
-        SAFETY_COMM_TIMEOUT_TICKS)) {
-        SafetyGuard_Stop(STOP_REASON_COMM_TIMEOUT, FAULT_COMM_TIMEOUT, tick);
         return true;
     }
 
@@ -138,7 +123,6 @@ void SafetyGuard_ClearFault(uint32_t tick)
     gSafetyStatus.stopReason = STOP_REASON_NONE;
     gSafetyStatus.fault = FAULT_NONE;
     gSafetyStatus.stopTick = tick;
-    gSafetyStatus.lastValidFrameTick = tick;
     gSafetyStatus.lineLostTicks = 0U;
     gSafetyStatus.leftStallTicks = 0U;
     gSafetyStatus.rightStallTicks = 0U;

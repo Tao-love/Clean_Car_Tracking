@@ -115,7 +115,6 @@ void AppProtocol_HandleFrame(const ProtocolFrame *frame)
     }
     if (frame->type == PROTOCOL_MSG_HELLO) {
         if (frame->payloadLength == 0U) {
-            TrialManager_OnValidFrame(gControlTick);
             AppProtocol_SendHelloAck(frame->sequence);
         } else {
             AppProtocol_SendNack(frame, APP_STATUS_BAD_PAYLOAD);
@@ -144,7 +143,7 @@ void AppProtocol_OnControlBoundary(uint32_t tick)
     }
 
     if (gTelemetryEnabled && (gTelemetryHz != 0U)) {
-        uint32_t interval = 100U / gTelemetryHz;
+        uint32_t interval = 150U / gTelemetryHz;
         if (interval == 0U) {
             interval = 1U;
         }
@@ -160,7 +159,6 @@ static void AppProtocol_HandleSessionCommand(const ProtocolFrame *frame)
     if (!AppProtocol_ValidateSession(frame, 4U)) {
         return;
     }
-    TrialManager_OnValidFrame(gControlTick);
     if (AppProtocol_ResendCached(frame)) {
         return;
     }

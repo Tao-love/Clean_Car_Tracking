@@ -1,9 +1,9 @@
 // ----- AI
 /*
  * 15 秒试验本地统计模块。
- * 职责：对每个 10 ms 样本累加 IAE、平方和、P95 直方图、丢线、速度、PWM、饱和与震荡。
- * 依赖：ControlSample。上下文：100 Hz 主循环任务。
- * 单位：和值保留原始误差/编码器/PWM 单位；样本数最多 1500。
+ * 职责：对每个 6.667 ms 样本累加 IAE、平方和、P95 直方图、丢线、速度、PWM、饱和与震荡。
+ * 依赖：ControlSample。上下文：150 Hz 主循环任务。
+ * 单位：和值保留原始误差/编码器/PWM 单位；样本数最多 2250。
  * 硬件副作用：无。故障输出：64 位累加饱和时置 arithmeticSaturated。
  */
 
@@ -57,7 +57,7 @@ typedef struct {
 void TrialStats_Reset(
     uint16_t paramVersion, int32_t leftCount, int32_t rightCount);
 
-/* 用途：累加一个 10 ms 样本；只改内存，禁止 ISR 调用。 */
+/* 用途：累加一个 6.667 ms 样本；只改内存，禁止 ISR 调用。 */
 void TrialStats_AddSample(const ControlSample *sample);
 
 /* 用途：记录控制漏执行 tick 数；使用饱和 16 位计数。 */

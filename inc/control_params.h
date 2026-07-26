@@ -1,7 +1,7 @@
 // ----- AI
 /*
  * 运行时参数双缓冲模块。
- * 职责：校验候选、保存 pending/active，并只在非 RUNNING 的 10 ms 边界整组切换。
+ * 职责：校验候选、保存 pending/active，并只在非 RUNNING 的 6.667 ms 边界整组切换。
  * 依赖：autotune_types。上下文：主循环。硬件副作用：无。
  * 故障输出：返回明确校验结果；从不部分覆盖 activeParams。
  */
@@ -37,7 +37,7 @@ ParamsValidationResult ControlParams_Validate(const ControlParams *params);
 ParamsValidationResult ControlParams_Stage(
     const ControlParams *params, SystemState state);
 
-/* 用途：在 10 ms 控制边界原子应用 pending；返回是否切换；RUNNING 时不动作。 */
+/* 用途：在 6.667 ms 控制边界原子应用 pending；返回是否切换；RUNNING 时不动作。 */
 bool ControlParams_ApplyPendingAtBoundary(SystemState state);
 
 /* 用途：返回只读 active 指针；指针始终有效；ISR 不可调用。 */

@@ -1,5 +1,5 @@
 // ----- AI
-/* 本地 100 Hz 双闭环、1500 tick 试验、状态转移与汇总生成。 */
+/* 本地 150 Hz 双闭环、2250 tick 试验、状态转移与汇总生成。 */
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -138,8 +138,7 @@ void TrialManager_ControlTick(uint32_t tick)
     }
     gStatus.trialTicks++;
     if (SafetyGuard_Evaluate(tick, &gStatus.latestSample, params,
-            gStatus.trialMode == TRIAL_MODE_LINE_FOLLOW,
-            gStatus.trialStartSource == TRIAL_START_SOURCE_BLUETOOTH)) {
+            gStatus.trialMode == TRIAL_MODE_LINE_FOLLOW)) {
         SafetyStatus safety = SafetyGuard_GetStatus();
         TrialManager_Finish(
             tick, safety.stopReason, safety.fault, SYSTEM_STATE_FAULT);
@@ -149,11 +148,6 @@ void TrialManager_ControlTick(uint32_t tick)
         TrialManager_Finish(tick, STOP_REASON_TRIAL_COMPLETE,
             FAULT_NONE, SYSTEM_STATE_FINISHED);
     }
-}
-
-void TrialManager_OnValidFrame(uint32_t tick)
-{
-    SafetyGuard_OnValidFrame(tick);
 }
 
 void TrialManager_ReportOverrun(uint32_t tick, uint16_t missedTicks)
