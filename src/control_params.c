@@ -7,6 +7,7 @@
 
 #include "autotune_types.h"
 #include "control_params.h"
+#include "manual_tuning.h"
 
 #define PARAM_GAIN_MAX_Q16          (64L * Q16_ONE)
 #define PARAM_LINE_GAIN_MAX_Q16     (8L * Q16_ONE)
@@ -16,11 +17,6 @@
 #define PARAM_DERIVATIVE_MAX        (7000)
 #define PARAM_TELEMETRY_HZ_MAX      (20U)
 #define PARAM_OVERRUN_LIMIT_MAX     (20U)
-
-static const ControlParams gSafeDefaults = {
-    0, 0, 0, 0, 0, 0, 0, 0, (Q16_ONE / 2), 10000,
-    0, 100, 100, 400, 3500, 300, 1, 10U, 3U
-};
 
 static ControlParams gActiveParams;
 static ControlParams gPendingParams;
@@ -37,15 +33,19 @@ static void ControlParams_WriteU16(uint8_t *destination, uint16_t value);
 void ControlParams_Init(
     const ControlParams *flashParams, uint16_t flashParamVersion)
 {
-    if ((flashParams != 0) &&
-        (ControlParams_Validate(flashParams) == PARAMS_VALID)) {
-        gActiveParams = *flashParams;
+    const ControlParams *manualParams = ManualTuning_GetParams();
+
+    /* 手动调参模式只接受本次固件内的表；历史 Flash 记录不得覆盖它。 */
+    (void) flashParams;
+    (void) flashParamVersion;
+    if (manualParams != 0) {
+        gActiveParams = *manualParams;
     } else {
-        gActiveParams = gSafeDefaults;
+        (void) memset(&gActiveParams, 0, sizeof(gActiveParams));
     }
     (void) memset(&gPendingParams, 0, sizeof(gPendingParams));
     gHasPending = false;
-    gParamVersion = (flashParams != 0) ? flashParamVersion : 0U;
+    gParamVersion = 0U;
 }
 
 ParamsValidationResult ControlParams_Validate(const ControlParams *params)

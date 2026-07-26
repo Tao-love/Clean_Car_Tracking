@@ -161,6 +161,7 @@ I2C_MPU6050.peripheral.sdaPin.$assign = "PB3";
 
 PWM_MOTOR.$name = "PWM_MOTOR";
 PWM_MOTOR.timerCount = 1600;
+PWM_MOTOR.pwmMode = "EDGE_ALIGN_UP";
 PWM_MOTOR.ccIndex = [0, 2];
 PWM_MOTOR.peripheral.$assign = "TIMA0";
 PWM_MOTOR.peripheral.ccp0Pin.$assign = "PB14";
@@ -174,17 +175,17 @@ TIMER_CONTROL.$name = "TIMER_CONTROL";
 TIMER_CONTROL.interrupts = ["ZERO"];
 TIMER_CONTROL.timerClkSrc = "LFCLK";
 TIMER_CONTROL.timerMode = "PERIODIC";
-TIMER_CONTROL.timerPeriod = "10 ms";
+TIMER_CONTROL.timerPeriod = "6.667 ms";
 TIMER_CONTROL.peripheral.$assign = "TIMG0";
 
 UART_DEBUG.$name = "UART_DEBUG";
 UART_DEBUG.enableFIFO = true;
 // ----- AI
-// JDY-31 首次联调固定使用 9600 8N1；RX 中断只搬运字节，不在 ISR 解析协议。
+// PCB USART2 使用 9600 8N1；RX 中断只搬运字节，不在 ISR 解析上层数据。
 UART_DEBUG.targetBaudRate = 9600;
 UART_DEBUG.enabledInterrupts = ["RX"];
 UART_DEBUG.rxFifoThreshold = "DL_UART_RX_FIFO_LEVEL_ONE_ENTRY";
 // ----- AI
-UART_DEBUG.peripheral.$assign = "UART1";
-UART_DEBUG.peripheral.txPin.$assign = "PA8";
-UART_DEBUG.peripheral.rxPin.$assign = "PA9";
+UART_DEBUG.peripheral.$assign = "UART2";
+UART_DEBUG.peripheral.txPin.$assign = "PB15";
+UART_DEBUG.peripheral.rxPin.$assign = "PB16";

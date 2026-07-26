@@ -1,116 +1,56 @@
-# basic-1：MSPM0G3507 循迹小车无线自动整定
+# USB_nobluetooth：MSPM0G3507 手动烧录调参固件
 
-`basic-1` 基于队友初版工程实现已批准的 `1-3` 架构：MSPM0G3507 在本地完成 100 Hz 双闭环、最长 5 秒试验、安全停车和统计；Python 通过 JDY-31 独占蓝牙 COM 口，下发候选参数、评分、自动搜索、记录日志，并可选把遥测转发给 VOFA+。
+这是不依赖蓝牙或串口调参的 MSPM0G3507 小车固件。每次改变参数后，重新编译、烧录，再用 KEY1 完成一次最多 5 秒的本地循线试验。UART2 仍只是原样回显诊断通道，不参与启动或调参。
 
-## 当前安全基线
+## 已实现的运行路径
 
-- 上电默认 `base_speed=0`，不会自动启动车辆。
-- 每次试验最多 `500 × 10 ms`，由 MCU 本地停车。
-- RUNNING 时 400 ms 无合法帧、150 ms 丢线、300 ms 堵转或连续控制超期均由 MCU 本地停车。
-- TB6612FNG 的 `STBY` 在现有 PCB 上固定 5 V；统一停车同时把 `PWMA/PWMB=0` 和 `AIN1/AIN2/BIN1/BIN2=0`。
-- 无线参数硬限制 `max_pwm<=400`，即 1600 满量程的 25%；提高上限必须在悬空和低速验收后修改固件受限常量，不能只靠无线命令绕过。
-- 电池 ADC、电流检测、直角专用状态机和 MPU6050 闭环不属于首版。`PA25` 已用于第 7 路灰度 `LINE_D6`，不是空闲 ADC 引脚。
-
-## JDY-31 接线
-
-| PCB / MSPM0 | JDY-31 |
-| --- | --- |
-| `PA8 / TX1` | `RXD` |
-| `PA9 / RX1` | `TXD` |
-| `GND` | `GND` |
-| 稳定 `5V` | `VCC` |
-
-`EN`、`STATE` 暂不接。首次联调固定 `9600 8N1`。烧录使用板载 CH340 的 UART BSL 下载口；正常蓝牙调参时不需要连接下载口。
-
-## 目录
-
-- `inc/`, `src/`：MSPM0 固件；UART、协议、参数、控制、安全、状态机、统计和 Flash 各自独立。
-- `empty.syscfg`：PA8/PA9 UART1 9600、1 字节 RX FIFO 阈值、10 ms TIMG0、PWM、编码器和灰度配置。
-- `python/autotune/`：串口、协议、会话、试验、评分、优化、日志、VOFA+ 和 CLI。
-- `python/config.example.json`：不动车的保守起点；实测后复制并填写参数，不要直接把未知参数当成已标定值。
-- `docs/protocol.md`：二进制协议与三种试验模式。
-- `docs/specs/1-3.md`：已批准的最终方案原文；`1-3-summary.md` 是便于快速阅读的摘要。
-- `docs/software-completion-audit.md`：1-3 要求到源码、测试和本次验收边界的逐项对应。
-- `docs/hardware-test-checklist.md`：以后烧录和接车时按顺序执行的实物验收；本次软件交付不要求执行。
-- `legacy/teammate_initial/`：不参与构建的队友旧 PID/MPU6050 参考文件。
-
-## USB 直烧（CH340 UART BSL）
-
-板载 USB 转串口在本电脑当前显示为 `USB-SERIAL CH340 (COM14)`；它是下载口，JDY-31 的蓝牙 COM 口不是下载口。
-
-1. 车轮悬空或断开电机主电源，连接普通 USB 数据线。
-2. 在设备管理器确认 `USB-SERIAL CH340 (COM14)`；COM 号变动时以当前 CH340 项为准。
-3. 在 CCS 导入并选择 `1_USB`，执行 **Project → Clean** 后再执行 **Project → Build Project**，确认生成 `Debug/1_USB.out`。
-4. 在 CCS 选择 `targetConfigs/MSPM0G3507.ccxml` 的 `UARTConnection`，按客服提供的 BOOT/RESET 时序让板子进入 BSL，再选择 CH340 的 COM14 下载。
-5. 若 CCS 的下载窗口只接受 Intel HEX，运行 `powershell -ExecutionPolicy Bypass -File tools\export_usb_hex.ps1`，选择 `Debug/1_USB.hex`。
-
-UART BSL 仅用于下载；它不能像 XDS110 一样提供断点、单步和实时内存查看。若连接失败，先检查 USB 数据线、COM 端口是否被其他程序占用，以及客服给出的 BOOT/RESET 时序。
-
-## 电脑环境
-
-- CCS / TI Arm Clang
-- MSPM0 SDK 2.11.00.07
-- Python 3.13
-- `pyserial==3.5`
-- `numpy>=2.5,<3`
-- 可选 VOFA+：本机 UDP FireWater，默认 `127.0.0.1:1347`
-
-安装 Python 依赖：
-
-```powershell
-E:\python\python.exe -m pip install -r python\requirements.txt
+```text
+编辑 src/manual_tuning.c
+→ 编译、烧录、上电
+→ 放车在线上，短按 KEY1
+→ 100 Hz 循线 + 左右速度 PI（最多 5 秒）
+→ 正常结束：可再次按 KEY1
+→ 安全故障：停车并锁存，必须复位/重新上电后再试
 ```
 
-## 构建与测试
+- `KEY1` 是 `PA23` 上拉输入，按下沿只触发一次 `TRIAL_MODE_LINE_FOLLOW`。左右目标速度由 `baseSpeed` 与循线 PD 计算，KEY1 不再启动固定 `6/6` 的轮速试验。
+- 本次上电的参数只来自 [`src/manual_tuning.c`](src/manual_tuning.c)。旧 Flash 参数不会被读取或覆盖源码表。
+- 正常运行满 500 个 10 ms tick（5 秒）后立即回到 `IDLE`，可再次按 KEY1。丢线、堵转、控制超期等故障保持 `FAULT`，KEY1 不会清除故障；先排查后复位。
+- 100 Hz 控制、八路灰度、编码器速度 PI、5 秒上限、丢线/堵转/控制超期保护均保留。
+- `maxPwm` 的固件上限是 `400`，PWM 满量程是 `1600`。当前手动表为 `200`；在完成低速验证前不要增大它。
 
-在 CCS 中导入本目录的 `basic-1` 工程，使用 MSPM0 SDK 2.11.00.07 重新生成 SysConfig 后 Build。也可运行仓库内的严格验证脚本：
+## 唯一需要编辑的参数表
 
-```powershell
-powershell -ExecutionPolicy Bypass -File tools\verify.ps1
-```
+只编辑 [`src/manual_tuning.c`](src/manual_tuning.c)，不要改 `syscfg_gen/`、`Debug/` 或 Flash 槽地址。增益是 Q16.16：`1.0 = Q16_ONE = 65536`；`baseSpeed`、`maxTargetSpeed` 和 `maxDeltaSpeed` 的单位均为“每 10 ms 编码器计数”，不是 PWM 百分比。
 
-该脚本执行 SysConfig、全部 Python 测试、Python 语法检查、`-Wall -Wextra -Werror` 固件构建，并确认 Flash 双槽固定在 `0x1F800`/`0x1FC00`；`tests/firmware_host/test_core.c` 的纯 C 契约向量也参加严格交叉编译，但本次未烧录执行 ARM 目标代码。
+当前保守基线：
 
-## 首次只测通信
+- 左/右速度：`Kp=8/8`、`Ki=0/0`、前馈=`28/24`。
+- 循线：`Kp=0`、`Kd=0`，因此它是安全的“无转向修正”基线，**不能据此期待完成循线**；首次落地前由调参记录给出小的非零 `Kp`，`Kd` 先保持 0。
+- `baseSpeed=5`、`maxPwm=200`、堵转阈值=`PWM 80` 且速度 `<1`。
 
-电机不要落地，建议先不接电机主电源，只验证 JDY-31：
+## 每轮手动调参流程
 
-```powershell
-$env:PYTHONPATH="python"
-E:\python\python.exe -m autotune ports
-E:\python\python.exe -m autotune --port COM7 hello
-E:\python\python.exe -m autotune --port COM7 status
-```
+1. 在 `src/manual_tuning.c` 只改本轮有依据的一组参数，记录实际值；编译并烧录。烧录前确认电池状态、接线、轮胎、灰度高度和赛道没有变化。
+2. 首次或输出增大后先悬空确认两轮均能转且正向 PWM 的编码器速度为正；发现反向、卡轮或无力，先处理电机/编码器/机械问题，不增大 PID。
+3. 落地时把车放在黑线上，朝向赛道前进方向；短按 KEY1，只观察一轮，最长 5 秒。方向反了或明显失控立刻断开电机电源。
+4. 先固定低 `baseSpeed`，调循线 `Kp` 到能回到线附近；再少量加入 `Kd` 抑制摆动；最后逐档提高 `baseSpeed`。速度 PI、前馈或 PWM 饱和异常要先回到低输出排查。
+5. 正常结束可再次按 KEY1。若约 0.15 秒停车，优先检查是否丢线；若约 0.3 秒停车，优先检查堵转、轮子和电源；故障后先复位再进行下一轮。
 
-`hello` 和 `status` 不会启动电机。
+每次反馈请包含：模式（KEY1 手动循线/车轮悬空）、落地与起点、实际烧录的 `baseSpeed`、左右前馈、左右 Kp/Ki、循线 Kp/Kd、`maxPwm`，以及运行时长、左右轮现象、循线现象和停止前表现。
 
-## 明确启动试验的命令
+## 编译验证与烧录
 
-所有 trial 都先执行 `SET_PARAMS → ARM → START`，并等待 MCU 的最终 `TRIAL_SUMMARY`：
-
-```powershell
-# 正常循线，启用 150 ms 丢线保护
-E:\python\python.exe -m autotune --port COM7 trial --mode line
-
-# 车轮悬空速度阶跃
-E:\python\python.exe -m autotune --port COM7 trial --mode speed --left 10 --right 10
-
-# 车轮悬空开环 PWM，仍受 max_pwm<=400 和堵转保护
-E:\python\python.exe -m autotune --port COM7 trial --mode pwm --left 100 --right 100
-```
-
-自动阶段命令为 `identify`、`tune-speed`、`tune-line`、`climb`。发生安全故障后流程立即暂停，并在可能时把 RAM 参数恢复为 last-safe；不会自动清故障或重新启动。
-
-只有在 `IDLE` 且明确确认最终参数版本后才允许：
+离线验证（不烧录、不打开串口、不驱动电机）：
 
 ```powershell
-E:\python\python.exe -m autotune --port COM7 commit --version 12
+cd E:\TI_work\TI_Project\USB_nobluetooth
+powershell -ExecutionPolicy Bypass -File .\tests\verify_manual_tuning.ps1
+powershell -ExecutionPolicy Bypass -File .\tools\verify.ps1
 ```
 
-## VOFA+
+使用 CCS 导入本目录工程；可编辑的 SysConfig 源为 `empty.syscfg`，生成文件仅供读取。`targetConfigs/MSPM0G3507.ccxml` 当前配置为 XDS110；若使用 CH340 UART BSL 下载，请使用经过确认的 UART BSL 连接配置和厂商提供的 BOOT/RESET 时序。UART BSL 不提供在线调试。
 
-Python 始终独占蓝牙 COM。需要 VOFA+ 时，在配置中启用 `vofa.enabled`，然后让 VOFA+ 监听 Python 的本机 UDP FireWater 端口；不要让 VOFA+ 再打开 JDY-31 的 COM 口。VOFA+ 未运行或转发失败不会中断试验。
+## UART2 诊断（非调参通道）
 
-## 软件交付与后续实物状态
-
-本次交付范围是完整代码、文档、离线测试、SysConfig 重生成、固件编译链接和 GitHub 仓库，不要求烧录或实车检验。蓝牙、电机方向、编码器方向、实际堵转阈值、低速循线、Flash 断电回退和赛道直角均保留在 [硬件验收清单](docs/hardware-test-checklist.md) 中，供以后决定接车时使用；未实测项不会被声称为实物已通过，也不阻塞本次软件完成状态。
+PCB `USART2` 为 `9600 8N1`：`TX2/PB15 → USB-TTL RXD`、`RX2/PB16 → USB-TTL TXD`、GND 对 GND；不要向板子接 USB-TTL 电源。复位后会发送一次 `UART2 READY\r\n`，收到字节会原样回显。该通道不会接受参数、不会启动电机，也不会解除故障。

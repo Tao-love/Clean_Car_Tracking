@@ -1,5 +1,5 @@
 // ----- AI
-/* UART1 中断搬运实现：高优先级 ACK/汇总始终先于可丢遥测发送。 */
+/* UART2 中断搬运实现：高优先级 ACK/汇总始终先于可丢遥测发送。 */
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -31,9 +31,9 @@ void UART_Transport_Init(void)
     gCounters.txHighRejectedFrames = 0U;
     gCounters.txLowRejectedFrames = 0U;
 
-    /* 清除上电过程可能残留的 UART1 NVIC 请求，避免初始化后立即进入旧中断。 */
+    /* 清除上电过程可能残留的 UART2 NVIC 请求，避免初始化后立即进入旧中断。 */
     NVIC_ClearPendingIRQ(UART_DEBUG_INST_INT_IRQN);
-    /* 允许 UART1 中断进入 CPU；SysConfig 已只预开 RX 来源，TX 在有数据时动态开启。 */
+    /* 允许 UART2 中断进入 CPU；SysConfig 已只预开 RX 来源，TX 在有数据时动态开启。 */
     NVIC_EnableIRQ(UART_DEBUG_INST_INT_IRQN);
 }
 
@@ -62,7 +62,7 @@ bool UART_Transport_Write(
         (void) RingBuffer_PushFromISR(target, data[index]);
     }
 
-    /* TX 队列已有数据，开启 UART1 TX FIFO 中断让 ISR 开始发送，主循环不等待硬件。 */
+    /* TX 队列已有数据，开启 UART2 TX FIFO 中断让 ISR 开始发送，主循环不等待硬件。 */
     DL_UART_Main_enableInterrupt(UART_DEBUG_INST, DL_UART_MAIN_INTERRUPT_TX);
     return true;
 }
@@ -71,24 +71,24 @@ UARTTransportCounters UART_Transport_GetCounters(void)
 {
     UARTTransportCounters result;
 
-    /* 短暂屏蔽 UART1 IRQ，保证三个 32 位计数属于同一个快照。 */
+    /* 短暂屏蔽 UART2 IRQ，保证三个 32 位计数属于同一个快照。 */
     NVIC_DisableIRQ(UART_DEBUG_INST_INT_IRQN);
     result = gCounters;
-    /* 快照完成后立即恢复 UART1 IRQ，已到达的字节仍保留在硬件 FIFO。 */
+    /* 快照完成后立即恢复 UART2 IRQ，已到达的字节仍保留在硬件 FIFO。 */
     NVIC_EnableIRQ(UART_DEBUG_INST_INT_IRQN);
     return result;
 }
 
 void UART_DEBUG_INST_IRQHandler(void)
 {
-    /* 读取 UART1 当前最高优先级待处理中断，用于区分 RX 到达和 TX FIFO 空位。 */
+    /* 读取 UART2 当前最高优先级待处理中断，用于区分 RX 到达和 TX FIFO 空位。 */
     switch (DL_UART_Main_getPendingInterrupt(UART_DEBUG_INST)) {
         case DL_UART_MAIN_IIDX_RX:
             /* 一次清空硬件 RX FIFO，降低 9600 baud 连续字节的溢出风险。 */
             while (!DL_UART_Main_isRXFIFOEmpty(UART_DEBUG_INST)) {
                 uint8_t value;
 
-                /* 读 RXDATA 会从 UART1 硬件 FIFO 弹出一字节。 */
+                /* 读 RXDATA 会从 UART2 硬件 FIFO 弹出一字节。 */
                 value = DL_UART_Main_receiveData(UART_DEBUG_INST);
                 if (!RingBuffer_PushFromISR(&gRxBuffer, value)) {
                     gCounters.rxOverflowBytes++;
@@ -106,7 +106,7 @@ void UART_DEBUG_INST_IRQHandler(void)
                         UART_DEBUG_INST, DL_UART_MAIN_INTERRUPT_TX);
                     break;
                 }
-                /* 写 TXDATA 把一字节加入 UART1 硬件发送 FIFO。 */
+                /* 写 TXDATA 把一字节加入 UART2 硬件发送 FIFO。 */
                 DL_UART_Main_transmitData(UART_DEBUG_INST, value);
             }
             break;

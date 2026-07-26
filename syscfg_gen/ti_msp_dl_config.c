@@ -285,7 +285,7 @@ static const DL_TimerA_ClockConfig gPWM_MOTORClockConfig = {
 };
 
 static const DL_TimerA_PWMConfig gPWM_MOTORConfig = {
-    .pwmMode = DL_TIMER_PWM_MODE_EDGE_ALIGN,
+    .pwmMode = DL_TIMER_PWM_MODE_EDGE_ALIGN_UP,
     .period = 1600,
     .isTimerWithFourCC = true,
     .startTimer = DL_TIMER_STOP,

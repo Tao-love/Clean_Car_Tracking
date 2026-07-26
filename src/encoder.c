@@ -1,5 +1,5 @@
 // ----- AI
-/* MG310 AB 相编码器计数、判向与 100 Hz 速度滤波。 */
+/* MG310 AB 相编码器计数、判向与 150 Hz 速度滤波。 */
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -57,7 +57,7 @@ void Encoder_UpdateSpeeds(void)
     int32_t leftCount;
     int32_t rightCount;
 
-    /* 短暂屏蔽 GROUP1 IRQ，使左右计数属于同一 10 ms 快照。 */
+    /* 短暂屏蔽 GROUP1 IRQ，使左右计数属于同一 6.667 ms 快照。 */
     NVIC_DisableIRQ(GPIO_ENCODER_INT_IRQN);
     leftCount = gLeftCount;
     rightCount = gRightCount;

@@ -1,12 +1,12 @@
 // ----- AI
-/* 本地 100 Hz 双闭环、500 tick 试验、状态转移与汇总生成。 */
+/* 本地 150 Hz 双闭环、2250 tick 试验、状态转移与汇总生成。 */
 
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "adc.h"
+#include "gray_sensor.h"
 #include "autotune_types.h"
 #include "control_params.h"
 #include "encoder.h"
@@ -47,6 +47,7 @@ void TrialManager_Init(uint32_t tick, const ControlParams *flashParams,
     gParamsApplied = false;
     gOverrunReportedForBoundary = false;
     gStatus.trialMode = TRIAL_MODE_LINE_FOLLOW;
+    gStatus.trialStartSource = TRIAL_START_SOURCE_BLUETOOTH;
     gLeftTrialCommand = 0;
     gRightTrialCommand = 0;
 }
@@ -149,11 +150,6 @@ void TrialManager_ControlTick(uint32_t tick)
     }
 }
 
-void TrialManager_OnValidFrame(uint32_t tick)
-{
-    SafetyGuard_OnValidFrame(tick);
-}
-
 void TrialManager_ReportOverrun(uint32_t tick, uint16_t missedTicks)
 {
     if (gStatus.state != SYSTEM_STATE_RUNNING) {
@@ -194,7 +190,8 @@ TrialCommandResult TrialManager_Arm(uint16_t paramVersion)
 }
 
 TrialCommandResult TrialManager_Start(
-    uint32_t tick, TrialMode mode, int16_t leftCommand, int16_t rightCommand)
+    uint32_t tick, TrialMode mode, int16_t leftCommand, int16_t rightCommand,
+    TrialStartSource source)
 {
     const ControlParams *params = ControlParams_GetActive();
 
@@ -203,6 +200,10 @@ TrialCommandResult TrialManager_Start(
     }
     if ((mode < TRIAL_MODE_LINE_FOLLOW) ||
         (mode > TRIAL_MODE_OPEN_LOOP_PWM)) {
+        return TRIAL_COMMAND_BAD_PARAMS;
+    }
+    if ((source != TRIAL_START_SOURCE_BLUETOOTH) &&
+        (source != TRIAL_START_SOURCE_KEY1)) {
         return TRIAL_COMMAND_BAD_PARAMS;
     }
     if ((mode == TRIAL_MODE_WHEEL_SPEED) &&
@@ -223,6 +224,7 @@ TrialCommandResult TrialManager_Start(
     gStatus.trialTicks = 0U;
     gStatus.summaryReady = false;
     gStatus.trialMode = mode;
+    gStatus.trialStartSource = source;
     gLeftTrialCommand = leftCommand;
     gRightTrialCommand = rightCommand;
     gStatus.state = SYSTEM_STATE_RUNNING;
@@ -340,6 +342,8 @@ static void TrialManager_Finish(
         Encoder_GetLeftCount(), Encoder_GetRightCount());
     gStatus.safety = SafetyGuard_GetStatus();
     gStatus.summaryReady = true;
-    gStatus.state = state;
+    /* 正常跑满 15 秒可再次按 KEY1；任何安全故障仍锁存在 FAULT，必须复位。 */
+    gStatus.state = (reason == STOP_REASON_TRIAL_COMPLETE) ?
+        SYSTEM_STATE_IDLE : state;
 }
 // ----- AI

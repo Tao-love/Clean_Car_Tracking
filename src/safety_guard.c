@@ -1,5 +1,5 @@
 // ----- AI
-/* 400 ms 通信、150 ms 丢线、300 ms 堵转与控制超期联锁。 */
+/* 150 ms 丢线、300 ms 堵转与控制超期联锁。 */
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -17,7 +17,6 @@ static uint16_t SafetyGuard_IncrementSaturating(uint16_t value);
 void SafetyGuard_Init(SafetyControlResetHandler resetHandler, uint32_t tick)
 {
     gResetHandler = resetHandler;
-    gSafetyStatus.lastValidFrameTick = tick;
     gSafetyStatus.lineLostTicks = 0U;
     gSafetyStatus.leftStallTicks = 0U;
     gSafetyStatus.rightStallTicks = 0U;
@@ -27,7 +26,6 @@ void SafetyGuard_Init(SafetyControlResetHandler resetHandler, uint32_t tick)
 
 void SafetyGuard_BeginTrial(uint32_t tick)
 {
-    gSafetyStatus.lastValidFrameTick = tick;
     gSafetyStatus.lineLostTicks = 0U;
     gSafetyStatus.leftStallTicks = 0U;
     gSafetyStatus.rightStallTicks = 0U;
@@ -37,24 +35,16 @@ void SafetyGuard_BeginTrial(uint32_t tick)
     gSafetyStatus.stopTick = tick;
 }
 
-void SafetyGuard_OnValidFrame(uint32_t tick)
-{
-    gSafetyStatus.lastValidFrameTick = tick;
-}
-
 bool SafetyGuard_Evaluate(uint32_t tick, const ControlSample *sample,
     const ControlParams *params, bool requireLine)
 {
+    /* ===== 参数完整性保护：控制样本或活动参数无效时立即停车 ===== */
     if ((sample == 0) || (params == 0)) {
         SafetyGuard_Stop(STOP_REASON_PARAMETER_ERROR, FAULT_INTERNAL, tick);
         return true;
     }
-    if ((uint32_t) (tick - gSafetyStatus.lastValidFrameTick) >=
-        SAFETY_COMM_TIMEOUT_TICKS) {
-        SafetyGuard_Stop(STOP_REASON_COMM_TIMEOUT, FAULT_COMM_TIMEOUT, tick);
-        return true;
-    }
 
+    /* ===== 循线丢失保护：仅循线模式检查灰度是否持续有效 ===== */
     if (requireLine) {
         gSafetyStatus.lineLostTicks = sample->line.valid ? 0U :
             SafetyGuard_IncrementSaturating(gSafetyStatus.lineLostTicks);
@@ -66,6 +56,7 @@ bool SafetyGuard_Evaluate(uint32_t tick, const ControlSample *sample,
         gSafetyStatus.lineLostTicks = 0U;
     }
 
+    /* ===== 左右独立堵转保护：高 PWM 且低编码器速度持续 300 ms 才停车 ===== */
     gSafetyStatus.leftStallTicks =
         ((abs(sample->leftPwm) > params->stallPwmThreshold) &&
          (abs(sample->leftSpeed) < params->stallSpeedThreshold)) ?
@@ -88,6 +79,7 @@ bool SafetyGuard_Evaluate(uint32_t tick, const ControlSample *sample,
 bool SafetyGuard_ReportOverrun(
     uint32_t tick, uint16_t missedTicks, const ControlParams *params)
 {
+    /* ===== 控制超期保护：连续漏执行达到参数上限时停车 ===== */
     if ((params == 0) || (missedTicks == 0U)) {
         return false;
     }
@@ -112,6 +104,7 @@ void SafetyGuard_ReportOnTimeTick(void)
 
 void SafetyGuard_Stop(StopReason reason, FaultCode fault, uint32_t tick)
 {
+    /* ===== 统一停车动作：所有安全路径均从这里清 PWM、方向和控制状态 ===== */
     Motor_Stop();
     if (gResetHandler != 0) {
         gResetHandler();
@@ -130,7 +123,6 @@ void SafetyGuard_ClearFault(uint32_t tick)
     gSafetyStatus.stopReason = STOP_REASON_NONE;
     gSafetyStatus.fault = FAULT_NONE;
     gSafetyStatus.stopTick = tick;
-    gSafetyStatus.lastValidFrameTick = tick;
     gSafetyStatus.lineLostTicks = 0U;
     gSafetyStatus.leftStallTicks = 0U;
     gSafetyStatus.rightStallTicks = 0U;

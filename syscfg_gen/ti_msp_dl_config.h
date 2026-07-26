@@ -137,18 +137,18 @@ extern "C" {
 
 
 /* Defines for UART_DEBUG */
-#define UART_DEBUG_INST                                                    UART1
+#define UART_DEBUG_INST                                                    UART2
 #define UART_DEBUG_INST_FREQUENCY                                       32000000
-#define UART_DEBUG_INST_IRQHandler                              UART1_IRQHandler
-#define UART_DEBUG_INST_INT_IRQN                                  UART1_INT_IRQn
-#define GPIO_UART_DEBUG_RX_PORT                                            GPIOA
-#define GPIO_UART_DEBUG_TX_PORT                                            GPIOA
-#define GPIO_UART_DEBUG_RX_PIN                                     DL_GPIO_PIN_9
-#define GPIO_UART_DEBUG_TX_PIN                                     DL_GPIO_PIN_8
-#define GPIO_UART_DEBUG_IOMUX_RX                                 (IOMUX_PINCM20)
-#define GPIO_UART_DEBUG_IOMUX_TX                                 (IOMUX_PINCM19)
-#define GPIO_UART_DEBUG_IOMUX_RX_FUNC                  IOMUX_PINCM20_PF_UART1_RX
-#define GPIO_UART_DEBUG_IOMUX_TX_FUNC                  IOMUX_PINCM19_PF_UART1_TX
+#define UART_DEBUG_INST_IRQHandler                              UART2_IRQHandler
+#define UART_DEBUG_INST_INT_IRQN                                  UART2_INT_IRQn
+#define GPIO_UART_DEBUG_RX_PORT                                            GPIOB
+#define GPIO_UART_DEBUG_TX_PORT                                            GPIOB
+#define GPIO_UART_DEBUG_RX_PIN                                    DL_GPIO_PIN_16
+#define GPIO_UART_DEBUG_TX_PIN                                    DL_GPIO_PIN_15
+#define GPIO_UART_DEBUG_IOMUX_RX                                 (IOMUX_PINCM33)
+#define GPIO_UART_DEBUG_IOMUX_TX                                 (IOMUX_PINCM32)
+#define GPIO_UART_DEBUG_IOMUX_RX_FUNC                  IOMUX_PINCM33_PF_UART2_RX
+#define GPIO_UART_DEBUG_IOMUX_TX_FUNC                  IOMUX_PINCM32_PF_UART2_TX
 #define UART_DEBUG_BAUD_RATE                                              (9600)
 #define UART_DEBUG_IBRD_32_MHZ_9600_BAUD                                   (208)
 #define UART_DEBUG_FBRD_32_MHZ_9600_BAUD                                    (21)

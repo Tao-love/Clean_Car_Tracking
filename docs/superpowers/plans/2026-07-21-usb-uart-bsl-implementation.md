@@ -11,9 +11,9 @@
 ## Global Constraints
 
 - 只修改 E:\TI_work\TI_Project\1_USB；绝不修改 basic-1。
-- 下载口为 USB-SERIAL CH340 (COM14)；蓝牙 COM 口不得用于烧录。
+- 下载口为 USB-SERIAL CH340 (COM14)；非 CH340 的其他串口不得用于烧录。
 - UART BSL 不是 XDS110：不得宣称支持 SWD 断点、在线内存读取或单步。
-- 不改动 src/、inc/、empty.syscfg、PID、安全联锁或蓝牙协议。
+- 不改动 src/、inc/、empty.syscfg、PID、安全联锁或其他串口协议。
 - 新增代码使用中文模块化注释；新增代码块按项目约定以 ----- AI 注释线隔开。
 - 未获得板子的 BOOT/RESET 时序前，README 不臆造进入 BSL 的按键顺序。
 
@@ -58,7 +58,7 @@ Expected: .theia/launch.json 显示 basic-1 和 XDS110，targetConfigs/MSPM0G350
 <instance desc="MSPM0G3507" href="devices/MSPM0G3507.xml" id="MSPM0G3507" xml="MSPM0G3507.xml" xmlpath="devices"/>
 ~~~
 
-删除 .theia/launch.json 中固定 basic-1 / Texas Instruments XDS110 USB Debug Probe 的 launch 条目；不凭空编造 Theia UART 启动 JSON。于 targetConfigs/readme.txt 首段写明：该 .ccxml 是 CH340 UART BSL 目标，CCS 中应选 COM14，不选蓝牙或 XDS110。
+删除 .theia/launch.json 中固定 basic-1 / Texas Instruments XDS110 USB Debug Probe 的 launch 条目；不凭空编造 Theia UART 启动 JSON。于 targetConfigs/readme.txt 首段写明：该 .ccxml 是 CH340 UART BSL 目标，CCS 中应选 COM14，不选其他串口或 XDS110。
 
 - [x] **Step 3: 验证元数据**
 
@@ -205,7 +205,7 @@ Expected: 当前文档未完整覆盖 CH340 下载流程。
 ~~~markdown
 ## USB 直烧（CH340 UART BSL）
 
-板载 USB 转串口在本电脑当前显示为 USB-SERIAL CH340 (COM14)；它是下载口，JDY-31 的蓝牙 COM 口不是下载口。
+板载 USB 转串口在本电脑当前显示为 USB-SERIAL CH340 (COM14)；它是下载口，其他串口不是下载口。
 
 1. 车轮悬空或断开电机主电源，连接普通 USB 数据线。
 2. 在设备管理器确认 USB-SERIAL CH340 (COM14)；COM 号变动时以当前 CH340 项为准。
@@ -289,4 +289,4 @@ git commit -m "test: align offline verification with 1_USB"
 2. 轮子悬空或断开电机主电源。
 3. 根据客服给出的精确 BOOT/RESET 时序进入 BSL；该时序未确认前不随机按键。
 4. 在 CCS UART BSL 下载界面选择 CH340 / COM14 和 Debug/1_USB.out；若只接受 HEX 则选择 Debug/1_USB.hex。
-5. 下载成功后复位，再按蓝牙通信测试流程验证应用功能。
+5. 下载成功后复位，再按应用通信测试流程验证功能。

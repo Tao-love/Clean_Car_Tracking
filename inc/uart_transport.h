@@ -1,11 +1,11 @@
 // ----- AI
 /*
- * UART1 非阻塞字节搬运模块。
+ * UART2 非阻塞字节搬运模块。
  *
- * 职责：在 JDY-31 的 UART1 硬件 FIFO 与内存环形队列之间搬运字节。
+ * 职责：在 PCB USART2 的 UART2 硬件 FIFO 与内存环形队列之间搬运字节。
  * 依赖：SysConfig 生成的 UART_DEBUG，ring_buffer。
  * 上下文：ISR 只执行 FIFO/队列搬运；主循环读 RX、写 TX。
- * 数据单位：字节。硬件副作用：开启 UART1 NVIC 和 TX/RX 中断。
+ * 数据单位：字节。硬件副作用：开启 UART2 NVIC 和 TX/RX 中断。
  * 故障输出：记录 RX 溢出、高/低优先级 TX 丢弃数，从不阻塞 100 Hz 控制。
  */
 
@@ -21,7 +21,7 @@ typedef struct {
     uint32_t txLowRejectedFrames;
 } UARTTransportCounters;
 
-/* 用途：清空队列并开启 UART1 RX 中断；无输入输出；不允许 ISR 调用。 */
+/* 用途：清空队列并开启 UART2 RX 中断；无输入输出；不允许 ISR 调用。 */
 void UART_Transport_Init(void);
 
 /*

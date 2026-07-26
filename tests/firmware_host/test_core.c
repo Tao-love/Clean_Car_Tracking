@@ -11,16 +11,32 @@
 #include <stdint.h>
 
 #include "autotune_types.h"
+#include "control_params.h"
 #include "crc16.h"
+#include "key_start.h"
 #include "line_control.h"
+#include "manual_tuning.h"
 #include "ring_buffer.h"
 #include "safety_guard.h"
 #include "speed_pi.h"
 #include "trial_stats.h"
+#include "uart_echo.h"
 
 static uint16_t gMotorStopCalls;
 static uint16_t gControlResetCalls;
 static volatile int gTestResult;
+static const uint8_t *gEchoInput;
+static uint16_t gEchoInputLength;
+static uint16_t gEchoInputIndex;
+static uint8_t gEchoOutput[4];
+static uint16_t gEchoOutputLength;
+static uint16_t gEchoWriteAttempts;
+static bool gEchoWritesAreOneByteHighPriority;
+static bool gEchoRejectFirstWrite;
+static uint8_t gStartupBeaconOutput[16];
+static uint16_t gStartupBeaconLength;
+static uint16_t gStartupBeaconWriteAttempts;
+static bool gStartupBeaconHighPriority;
 
 /* 仅供离线契约 ELF 链接占位，不是可烧录的 MSPM0 启动向量表。 */
 void (*const interruptVectors[])(void)
@@ -110,6 +126,119 @@ static int Test_RingBuffer(void)
     return 0;
 }
 
+static void TestEcho_Reset(const uint8_t *input, uint16_t inputLength)
+{
+    gEchoInput = input;
+    gEchoInputLength = inputLength;
+    gEchoInputIndex = 0U;
+    gEchoOutputLength = 0U;
+    gEchoWriteAttempts = 0U;
+    gEchoWritesAreOneByteHighPriority = true;
+    gEchoRejectFirstWrite = false;
+}
+
+static bool TestEcho_Read(uint8_t *value)
+{
+    if ((value == 0) || (gEchoInputIndex >= gEchoInputLength)) {
+        return false;
+    }
+    *value = gEchoInput[gEchoInputIndex];
+    gEchoInputIndex++;
+    return true;
+}
+
+static bool TestEcho_Write(
+    const uint8_t *data, uint16_t length, bool highPriority)
+{
+    gEchoWriteAttempts++;
+    if ((data == 0) || (length != 1U) || !highPriority) {
+        gEchoWritesAreOneByteHighPriority = false;
+        return false;
+    }
+    if (gEchoRejectFirstWrite && (gEchoWriteAttempts == 1U)) {
+        return false;
+    }
+    if (gEchoOutputLength >= sizeof(gEchoOutput)) {
+        return false;
+    }
+    gEchoOutput[gEchoOutputLength] = data[0];
+    gEchoOutputLength++;
+    return true;
+}
+
+static int Test_UartEcho(void)
+{
+    static const uint8_t input[] = { 'p', 'i', 'n' };
+    uint16_t consumed;
+
+    TestEcho_Reset(input, sizeof(input));
+    consumed = UART_Echo_Poll(TestEcho_Read, TestEcho_Write, 2U);
+    if ((consumed != 2U) || (gEchoOutputLength != 2U) ||
+        (gEchoOutput[0] != 'p') || (gEchoOutput[1] != 'i')) {
+        return 55;
+    }
+    consumed = UART_Echo_Poll(TestEcho_Read, TestEcho_Write, 64U);
+    if ((consumed != 1U) || (gEchoOutputLength != 3U) ||
+        (gEchoOutput[2] != 'n') || !gEchoWritesAreOneByteHighPriority) {
+        return 56;
+    }
+    TestEcho_Reset(input, sizeof(input));
+    gEchoRejectFirstWrite = true;
+    consumed = UART_Echo_Poll(TestEcho_Read, TestEcho_Write, 64U);
+    if ((consumed != 3U) || (gEchoWriteAttempts != 3U) ||
+        (gEchoOutputLength != 2U) || (gEchoOutput[0] != 'i') ||
+        (gEchoOutput[1] != 'n')) {
+        return 57;
+    }
+    return 0;
+}
+
+static void TestStartupBeacon_Reset(void)
+{
+    gStartupBeaconLength = 0U;
+    gStartupBeaconWriteAttempts = 0U;
+    gStartupBeaconHighPriority = false;
+}
+
+static bool TestStartupBeacon_Write(
+    const uint8_t *data, uint16_t length, bool highPriority)
+{
+    uint16_t index;
+
+    gStartupBeaconWriteAttempts++;
+    gStartupBeaconHighPriority = highPriority;
+    if ((data == 0) || (length > sizeof(gStartupBeaconOutput))) {
+        return false;
+    }
+    for (index = 0U; index < length; index++) {
+        gStartupBeaconOutput[index] = data[index];
+    }
+    gStartupBeaconLength = length;
+    return true;
+}
+
+static int Test_UartStartupBeacon(void)
+{
+    static const uint8_t expected[] = "UART2 READY\r\n";
+    uint16_t index;
+
+    TestStartupBeacon_Reset();
+    if (!UART_Echo_SendStartupBeacon(TestStartupBeacon_Write)) {
+        return 58;
+    }
+    if ((gStartupBeaconWriteAttempts != 1U) ||
+        !gStartupBeaconHighPriority ||
+        (gStartupBeaconLength != (sizeof(expected) - 1U))) {
+        return 59;
+    }
+    for (index = 0U; index < gStartupBeaconLength; index++) {
+        if (gStartupBeaconOutput[index] != expected[index]) {
+            return 60;
+        }
+    }
+    return 0;
+}
+
 static int Test_SpeedPI(void)
 {
     SpeedPIState state = {0};
@@ -136,6 +265,21 @@ static int Test_SpeedPI(void)
     return 0;
 }
 
+static int Test_ManualTuning(void)
+{
+    const ControlParams *params = ManualTuning_GetParams();
+
+    if ((params == 0) ||
+        (ControlParams_Validate(params) != PARAMS_VALID) ||
+        (params->baseSpeed != 10) ||
+        (params->lineKpQ16 != (Q16_ONE / 128)) ||
+        (params->lineKdQ16 != (Q16_ONE / 1024)) ||
+        (params->maxPwm != 200)) {
+        return 23;
+    }
+    return 0;
+}
+
 static int Test_LineControl(void)
 {
     LineControlState state = {0, 0, false};
@@ -150,8 +294,8 @@ static int Test_LineControl(void)
     params.maxDeltaSpeed = 10;
     params.derivativeLimit = 1000;
     output = LineControl_Step(&state, &sample, &params);
-    if ((output.deltaSpeed != 10) || (output.leftTarget != 10) ||
-        (output.rightTarget != 25) || !output.targetSaturated) {
+    if ((output.deltaSpeed != 10) || (output.leftTarget != 25) ||
+        (output.rightTarget != 10) || !output.targetSaturated) {
         return 30;
     }
 
@@ -165,7 +309,7 @@ static int Test_LineControl(void)
     sample.error = 200;
     output = LineControl_Step(&state, &sample, &params);
     if ((state.filteredDerivative != 20) || (output.deltaSpeed != 20) ||
-        (output.leftTarget != -20) || (output.rightTarget != 20) ||
+        (output.leftTarget != 20) || (output.rightTarget != -20) ||
         output.targetSaturated) {
         return 31;
     }
@@ -179,11 +323,26 @@ static int Test_LineControl(void)
     return 0;
 }
 
+static int Test_KeyStart(void)
+{
+    KeyStartState state;
+
+    KeyStart_Init(&state);
+    if (KeyStart_OnSample(&state, false) ||
+        !KeyStart_OnSample(&state, true) ||
+        KeyStart_OnSample(&state, true) ||
+        KeyStart_OnSample(&state, true) ||
+        KeyStart_OnSample(&state, false) ||
+        !KeyStart_OnSample(&state, true)) {
+        return 35;
+    }
+    return 0;
+}
+
 static int Test_SafetyGuard(void)
 {
     ControlParams params = {0};
     ControlSample sample = {0};
-    SafetyStatus status;
     uint16_t tick;
 
     params.stallPwmThreshold = 100;
@@ -193,18 +352,6 @@ static int Test_SafetyGuard(void)
 
     gMotorStopCalls = 0U;
     gControlResetCalls = 0U;
-    SafetyGuard_Init(Test_ResetControl, 0U);
-    SafetyGuard_BeginTrial(0U);
-    if (SafetyGuard_Evaluate(39U, &sample, &params, true) ||
-        !SafetyGuard_Evaluate(40U, &sample, &params, true)) {
-        return 40;
-    }
-    status = SafetyGuard_GetStatus();
-    if ((status.fault != FAULT_COMM_TIMEOUT) || (gMotorStopCalls != 2U) ||
-        (gControlResetCalls != 2U)) {
-        return 41;
-    }
-
     SafetyGuard_Init(Test_ResetControl, 0U);
     SafetyGuard_BeginTrial(0U);
     sample.line.valid = false;
@@ -303,11 +450,27 @@ int main(void)
     if (result != 0) {
         return result;
     }
+    result = Test_UartEcho();
+    if (result != 0) {
+        return result;
+    }
+    result = Test_UartStartupBeacon();
+    if (result != 0) {
+        return result;
+    }
     result = Test_SpeedPI();
     if (result != 0) {
         return result;
     }
+    result = Test_ManualTuning();
+    if (result != 0) {
+        return result;
+    }
     result = Test_LineControl();
+    if (result != 0) {
+        return result;
+    }
+    result = Test_KeyStart();
     if (result != 0) {
         return result;
     }

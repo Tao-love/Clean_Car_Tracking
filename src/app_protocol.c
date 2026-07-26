@@ -25,12 +25,12 @@
 #define SUMMARY_WIRE_SIZE      (128U)
 
 #define CAPABILITY_RUNTIME_PARAMS (1UL << 0)
-#define CAPABILITY_TRIAL_5_SECONDS (1UL << 1)
+#define CAPABILITY_TRIAL_15_SECONDS (1UL << 1)
 #define CAPABILITY_LOCAL_SAFETY   (1UL << 2)
 #define CAPABILITY_LOCAL_STATS    (1UL << 3)
 #define CAPABILITY_FLASH_DUAL     (1UL << 4)
 #define CAPABILITY_TELEMETRY      (1UL << 5)
-#define CAPABILITIES_ALL (CAPABILITY_RUNTIME_PARAMS | CAPABILITY_TRIAL_5_SECONDS | \
+#define CAPABILITIES_ALL (CAPABILITY_RUNTIME_PARAMS | CAPABILITY_TRIAL_15_SECONDS | \
     CAPABILITY_LOCAL_SAFETY | CAPABILITY_LOCAL_STATS | CAPABILITY_FLASH_DUAL | \
     CAPABILITY_TELEMETRY)
 
@@ -115,7 +115,6 @@ void AppProtocol_HandleFrame(const ProtocolFrame *frame)
     }
     if (frame->type == PROTOCOL_MSG_HELLO) {
         if (frame->payloadLength == 0U) {
-            TrialManager_OnValidFrame(gControlTick);
             AppProtocol_SendHelloAck(frame->sequence);
         } else {
             AppProtocol_SendNack(frame, APP_STATUS_BAD_PAYLOAD);
@@ -144,7 +143,7 @@ void AppProtocol_OnControlBoundary(uint32_t tick)
     }
 
     if (gTelemetryEnabled && (gTelemetryHz != 0U)) {
-        uint32_t interval = 100U / gTelemetryHz;
+        uint32_t interval = 150U / gTelemetryHz;
         if (interval == 0U) {
             interval = 1U;
         }
@@ -160,7 +159,6 @@ static void AppProtocol_HandleSessionCommand(const ProtocolFrame *frame)
     if (!AppProtocol_ValidateSession(frame, 4U)) {
         return;
     }
-    TrialManager_OnValidFrame(gControlTick);
     if (AppProtocol_ResendCached(frame)) {
         return;
     }
@@ -233,7 +231,8 @@ static void AppProtocol_HandleSessionCommand(const ProtocolFrame *frame)
                 }
                 AppStatus status = AppProtocol_MapTrialResult(
                     TrialManager_Start(
-                        gControlTick, mode, leftCommand, rightCommand));
+                        gControlTick, mode, leftCommand, rightCommand,
+                        TRIAL_START_SOURCE_BLUETOOTH));
                 if (status == APP_STATUS_OK) {
                     AppProtocol_SendAck(frame, status);
                 } else {
