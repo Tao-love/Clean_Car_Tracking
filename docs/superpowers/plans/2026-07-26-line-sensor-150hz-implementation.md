@@ -175,7 +175,7 @@ git commit -m "feat: remove communication timeout safety stop"
 - [ ] **Step 1: Regenerate SysConfig**
 
 ```powershell
-& 'C:\Ti\sysconfig_1.26.2\sysconfig_cli.bat' --script 'E:\TI_work\TI_Project\USB_nobluetooth\empty.syscfg' -o 'syscfg_gen' --product 'C:\ti\ti\mspm0_sdk_2_11_00_07\.metadata\product.json' --compiler ticlang
+& 'C:\Ti\sysconfig_1.26.2\sysconfig_cli.bat' --script 'E:\TI_work\TI_Project\Clean_Car\empty.syscfg' -o 'syscfg_gen' --product 'C:\ti\ti\mspm0_sdk_2_11_00_07\.metadata\product.json' --compiler ticlang
 ```
 
 Expected: exit 0; do not hand-edit the generated result.

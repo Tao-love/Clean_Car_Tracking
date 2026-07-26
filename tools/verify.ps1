@@ -98,8 +98,8 @@ try {
     & $Compiler @LineRunLinkArgs
     if ($LASTEXITCODE -ne 0) { throw 'line_run 契约测试链接失败' }
 
-    $Map = Join-Path $Output 'MPU_Hand_Car.map'
-    $Firmware = Join-Path $Output 'MPU_Hand_Car.out'
+    $Map = Join-Path $Output 'Clean_Car.map'
+    $Firmware = Join-Path $Output 'Clean_Car.out'
     $DriverLib = Join-Path $SdkRoot 'source\ti\driverlib\lib\ticlang\m0p\mspm0g1x0x_g3x0x\driverlib.a'
     $LinkArgs = @(
         '@syscfg_gen/device.opt',
