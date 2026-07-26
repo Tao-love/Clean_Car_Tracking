@@ -293,7 +293,7 @@ static int Test_LineControl(void)
     params.maxTargetSpeed = 25;
     params.maxDeltaSpeed = 10;
     params.derivativeLimit = 1000;
-    output = LineControl_Step(&state, &sample, &params);
+    output = LineControl_Step(&state, &sample, &params, 0);
     if ((output.deltaSpeed != 6) || (output.leftTarget != 25) ||
         (output.rightTarget != 14) || !output.targetSaturated) {
         return 30;
@@ -307,7 +307,7 @@ static int Test_LineControl(void)
     params.maxDeltaSpeed = 100;
     params.derivativeLimit = 40;
     sample.error = 200;
-    output = LineControl_Step(&state, &sample, &params);
+    output = LineControl_Step(&state, &sample, &params, 0);
     if ((state.filteredDerivative != 20) || (output.deltaSpeed != 12) ||
         (output.leftTarget != 12) || (output.rightTarget != -12) ||
         output.targetSaturated) {
@@ -315,10 +315,38 @@ static int Test_LineControl(void)
     }
 
     sample.valid = false;
-    output = LineControl_Step(&state, &sample, &params);
+    output = LineControl_Step(&state, &sample, &params, 0);
     if ((output.leftTarget != 0) || (output.rightTarget != 0) ||
         (output.deltaSpeed != 0) || (state.previousDeltaSpeed != 0)) {
         return 32;
+    }
+
+    LineControl_Reset(&state);
+    params.lineKpQ16 = Q16_ONE;
+    params.lineKdQ16 = 0;
+    params.derivativeAlphaQ16 = 0;
+    params.baseSpeed = 0;
+    params.maxTargetSpeed = 100;
+    params.maxDeltaSpeed = 100;
+    sample.valid = true;
+    sample.error = 100;
+    for (uint8_t index = 0U; index < 9U; index++) {
+        output = LineControl_Step(&state, &sample, &params, 0);
+    }
+    output = LineControl_Step(&state, &sample, &params, 0);
+    if ((output.deltaSpeed != 60) || (output.leftTarget != 60) ||
+        (output.rightTarget != -60)) {
+        return 33;
+    }
+
+    LineControl_Reset(&state);
+    for (uint8_t index = 0U; index < 9U; index++) {
+        output = LineControl_Step(&state, &sample, &params, 0);
+    }
+    output = LineControl_Step(&state, &sample, &params, 70);
+    if ((output.deltaSpeed != 48) || (output.leftTarget != 48) ||
+        (output.rightTarget != -48)) {
+        return 34;
     }
     return 0;
 }

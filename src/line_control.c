@@ -31,7 +31,8 @@ void LineControl_Reset(LineControlState *state)
 }
 
 LineControlOutput LineControl_Step(LineControlState *state,
-    const LineSensorSample *sample, const ControlParams *params)
+    const LineSensorSample *sample, const ControlParams *params,
+    int16_t turnDamping)
 {
     /*
      * result 是本函数最终返回给调用者的数据：
@@ -90,6 +91,7 @@ LineControlOutput LineControl_Step(LineControlState *state,
     deltaQ16 = ((int64_t) params->lineKpQ16 * sample->error) +
         ((int64_t) params->lineKdQ16 * filtered);
     delta = (int32_t) (deltaQ16 / Q16_ONE);
+    delta -= turnDamping;
     delta = LineControl_ClampI32(delta, params->maxDeltaSpeed);
     delta = LineControl_SlewDelta(state->previousDeltaSpeed, delta);
     state->previousDeltaSpeed = (int16_t) delta;

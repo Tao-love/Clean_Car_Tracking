@@ -1,4 +1,4 @@
-# USB_nobluetooth：MSPM0G3507 手动烧录调参固件
+# MPU_Hand_Car：MSPM0G3507 手动烧录调参固件
 
 这是不依赖蓝牙或串口调参的 MSPM0G3507 小车固件。每次改变参数后，重新编译、烧录，再用 KEY1 完成一次最多 5 秒的本地循线试验。UART2 仍只是原样回显诊断通道，不参与启动或调参。
 
@@ -44,7 +44,7 @@
 离线验证（不烧录、不打开串口、不驱动电机）：
 
 ```powershell
-cd E:\TI_work\TI_Project\USB_nobluetooth
+cd E:\TI_work\TI_Project\MPU_Hand_Car
 powershell -ExecutionPolicy Bypass -File .\tests\verify_manual_tuning.ps1
 powershell -ExecutionPolicy Bypass -File .\tools\verify.ps1
 ```

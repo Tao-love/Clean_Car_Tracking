@@ -88,8 +88,8 @@ try {
     & $Compiler @ContractLinkArgs
     if ($LASTEXITCODE -ne 0) { throw '固件纯 C 契约测试链接失败' }
 
-    $Map = Join-Path $Output 'USB_nobluetooth.map'
-    $Firmware = Join-Path $Output 'USB_nobluetooth.out'
+    $Map = Join-Path $Output 'MPU_Hand_Car.map'
+    $Firmware = Join-Path $Output 'MPU_Hand_Car.out'
     $DriverLib = Join-Path $SdkRoot 'source\ti\driverlib\lib\ticlang\m0p\mspm0g1x0x_g3x0x\driverlib.a'
     $LinkArgs = @(
         '@syscfg_gen/device.opt',

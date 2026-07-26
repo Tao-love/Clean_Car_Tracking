@@ -17,6 +17,7 @@
 #include "key_start.h"
 #include "main.h"
 #include "motor.h"
+#include "mpu6050.h"
 #include "trial_manager.h"
 #include "uart_echo.h"
 #include "uart_transport.h"
@@ -33,6 +34,7 @@ int main(void)
     uint32_t lastProcessedTick = 0U;
     /* 按 SysConfig 生成配置初始化时钟、GPIO、PWM、UART 和定时器；此时 PWM 默认比较值为 0。 */
     SYSCFG_DL_init();
+    MPU6050_InitAndCalibrate();
     /* Motor_Init 的第一个硬件动作是同时清零两路 PWM 和四个方向脚。 */
     Motor_Init();
     /* 手动调参版本仅使用 src/manual_tuning.c 中随固件烧录的参数表。 */

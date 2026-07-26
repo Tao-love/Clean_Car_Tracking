@@ -12,6 +12,7 @@
 #include "encoder.h"
 #include "line_control.h"
 #include "motor.h"
+#include "mpu6050.h"
 #include "safety_guard.h"
 #include "speed_pi.h"
 #include "trial_manager.h"
@@ -56,6 +57,7 @@ void TrialManager_ControlTick(uint32_t tick)
 {
     const ControlParams *params;
     LineSensorSample line;
+    int16_t turnDamping;
 
     gStatus.controlTick = tick;
     if (!gOverrunReportedForBoundary) {
@@ -70,6 +72,8 @@ void TrialManager_ControlTick(uint32_t tick)
     gStatus.latestSample.line = line;
     gStatus.latestSample.leftSpeed = Encoder_GetLeftSpeed();
     gStatus.latestSample.rightSpeed = Encoder_GetRightSpeed();
+    MPU6050_Update();
+    turnDamping = MPU6050_GetTurnDamping();
 
     if (gStatus.state != SYSTEM_STATE_RUNNING) {
         gStatus.safety = SafetyGuard_GetStatus();
@@ -95,7 +99,8 @@ void TrialManager_ControlTick(uint32_t tick)
         SpeedPIOutput rightOutput;
 
         if (gStatus.trialMode == TRIAL_MODE_LINE_FOLLOW) {
-            lineOutput = LineControl_Step(&gLineState, &line, params);
+            lineOutput = LineControl_Step(
+                &gLineState, &line, params, turnDamping);
         } else {
             lineOutput.leftTarget = gLeftTrialCommand;
             lineOutput.rightTarget = gRightTrialCommand;

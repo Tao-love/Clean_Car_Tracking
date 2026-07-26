@@ -45,7 +45,8 @@ void LineControl_Reset(LineControlState *state);
  *       无效灰度时返回全零，且不更新旧误差。
  */
 LineControlOutput LineControl_Step(LineControlState *state,
-    const LineSensorSample *sample, const ControlParams *params);
+    const LineSensorSample *sample, const ControlParams *params,
+    int16_t turnDamping);
 
 #endif /* LINE_CONTROL_H */
 // ----- AI
