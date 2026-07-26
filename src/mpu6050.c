@@ -8,7 +8,7 @@
 #include <stdint.h>
 
 #include "ti_msp_dl_config.h"
-#include "autotune_types.h"
+#include "control_types.h"
 #include "mpu6050.h"
 
 #define MPU6050_I2C_ADDR                 (0x68U)

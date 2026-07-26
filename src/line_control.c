@@ -9,7 +9,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "autotune_types.h"
+#include "control_types.h"
 #include "line_control.h"
 
 #define LINE_DELTA_SLEW_PER_TICK (6)
@@ -52,7 +52,7 @@ LineControlOutput LineControl_Step(LineControlState *state,
     /*
      * 状态、灰度数据、参数无效，或灰度传感器没有找到有效黑线时：
      * 不更新历史数据，直接返回 { 左目标=0，右目标=0，差速=0，未限幅 }。
-     * 实际的丢线停车计时由 safety_guard 模块处理。
+     * line_run 会在进入本模块前把无效灰度替换为最后一次有效误差。
      */
     if ((state == 0) || (sample == 0) || (params == 0)) {
         return result;

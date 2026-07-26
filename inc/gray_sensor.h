@@ -11,7 +11,7 @@
 
 #include <stdint.h>
 
-#include "autotune_types.h"
+#include "control_types.h"
 
 #define LINE_SENSOR_COUNT      (8U)
 #define LINE_SENSOR_ACTIVE_LOW (0)

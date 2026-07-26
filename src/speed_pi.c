@@ -10,7 +10,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "autotune_types.h"
+#include "control_types.h"
 #include "speed_pi.h"
 
 static int32_t SpeedPI_ClampI32(int32_t value, int32_t limit);

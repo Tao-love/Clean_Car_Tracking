@@ -67,13 +67,10 @@ try {
     $ContractFirmware = Join-Path $Output 'test_core.out'
     $ContractObjects = @(
         $ContractTestObject,
-        (Join-Path $Output 'manual_tuning.o'),
         (Join-Path $Output 'control_params.o'),
         (Join-Path $Output 'speed_pi.o'),
         (Join-Path $Output 'line_control.o'),
-        (Join-Path $Output 'key_start.o'),
-        (Join-Path $Output 'safety_guard.o'),
-        (Join-Path $Output 'trial_stats.o')
+        (Join-Path $Output 'key_start.o')
     )
     $ContractLinkArgs = @(
         '@syscfg_gen/device.opt',
@@ -84,6 +81,22 @@ try {
     ) + $ContractObjects + @('-Wl,syscfg_gen\device_linker.cmd')
     & $Compiler @ContractLinkArgs
     if ($LASTEXITCODE -ne 0) { throw '固件纯 C 契约测试链接失败' }
+
+    $LineRunTestSource = '.\tests\firmware_host\test_line_run.c'
+    $LineRunTestObject = Join-Path $Output 'test_line_run.o'
+    & $Compiler @Common -c $LineRunTestSource -o $LineRunTestObject
+    if ($LASTEXITCODE -ne 0) { throw 'line_run 契约测试编译失败' }
+    $LineRunContract = Join-Path $Output 'test_line_run.out'
+    $LineRunLinkArgs = @(
+        '@syscfg_gen/device.opt',
+        '-march=thumbv6m', '-mcpu=cortex-m0plus', '-mfloat-abi=soft',
+        '-mlittle-endian', '-mthumb', '-O2', '-gdwarf-3',
+        '-Wall', '-Wextra', '-Werror', '-Wl,--rom_model',
+        '-o', $LineRunContract, $LineRunTestObject,
+        (Join-Path $Output 'line_run.o'), '-Wl,syscfg_gen\device_linker.cmd'
+    )
+    & $Compiler @LineRunLinkArgs
+    if ($LASTEXITCODE -ne 0) { throw 'line_run 契约测试链接失败' }
 
     $Map = Join-Path $Output 'MPU_Hand_Car.map'
     $Firmware = Join-Path $Output 'MPU_Hand_Car.out'

@@ -6,7 +6,7 @@
 
 #include "ti_msp_dl_config.h"
 #include "gray_sensor.h"
-#include "autotune_types.h"
+#include "control_types.h"
 
 uint8_t LineSensor_ReadRaw(void)
 {

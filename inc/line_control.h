@@ -4,7 +4,7 @@
  * 职责：对有效位置误差做限幅差分和一阶低通，计算左右目标速度。
  * 依赖：LineSensorSample、ControlParams。上下文：150 Hz 主循环任务。
  * 单位：error=-3500..3500，输出速度为每 6.667 ms 编码器计数。
- * 硬件副作用：无。故障输出：sensorValid=false 交由 safety_guard 计时。
+ * 硬件副作用：无。无效灰度由 line_run 转换为最后一次有效误差。
  */
 
 #ifndef LINE_CONTROL_H
@@ -13,7 +13,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "autotune_types.h"
+#include "control_types.h"
 
 typedef struct {
     /* 上一次灰度位置误差，供下一次计算 D 项使用。 */

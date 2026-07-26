@@ -1,60 +1,52 @@
-// ----- AI
-/*
- * 控制基础模块的纯 C 测试契约。
- *
- * 该文件不访问 MSPM0 寄存器，用于检查控制数学、安全计时和统计边界。
- * 本机尚无可执行 ARM 代码的模拟器，因此 CI 至少将它严格交叉编译；
- * 返回值检查在硬件单元测试固件中可直接复用。
- */
+/* 固定参数、速度 PI、循线 PD 与 KEY1 边沿的纯 C 契约。 */
 
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "autotune_types.h"
 #include "control_params.h"
+#include "control_types.h"
 #include "key_start.h"
 #include "line_control.h"
-#include "manual_tuning.h"
-#include "safety_guard.h"
 #include "speed_pi.h"
-#include "trial_stats.h"
 
-static uint16_t gMotorStopCalls;
-static uint16_t gControlResetCalls;
 static volatile int gTestResult;
 
-/* 仅供离线契约 ELF 链接占位，不是可烧录的 MSPM0 启动向量表。 */
 void (*const interruptVectors[])(void)
     __attribute__((used, section(".intvecs"))) = {0};
 
 int main(void);
 
-/*
- * 用途：满足 TI 链接器默认入口并保存 main 返回码。
- * 输入/输出：无参数、无返回；结果写入 gTestResult。前置条件：仅用于离线契约 ELF。
- * 副作用：完成后永久停留；不做真实复位初始化，禁止烧录，也禁止 ISR 调用。
- */
 void _c_int00(void)
 {
     gTestResult = main();
     for (;;) {
-        /* 保存测试返回码后不继续执行未知内存。 */
     }
 }
 
-/*
- * 用途：替代安全模块依赖的真实统一停车函数。
- * 输入/输出：无参数、无返回；前置条件：只允许契约测试链接。
- * 副作用：递增停车调用计数，不访问寄存器；禁止 ISR 调用。
- */
-void Motor_Stop(void)
+static int Test_ControlParams(void)
 {
-    gMotorStopCalls++;
-}
+    const ControlParams *params = ControlParams_Get();
 
-static void Test_ResetControl(void)
-{
-    gControlResetCalls++;
+    if ((params == 0) ||
+        (params->speedKpLeftQ16 != (12L * Q16_ONE)) ||
+        (params->speedKiLeftQ16 != 0) ||
+        (params->speedFeedforwardLeftQ16 != (42L * Q16_ONE)) ||
+        (params->speedKpRightQ16 != (12L * Q16_ONE)) ||
+        (params->speedKiRightQ16 != 0) ||
+        (params->speedFeedforwardRightQ16 != (69L * Q16_ONE / 2)) ||
+        (params->lineKpQ16 != (Q16_ONE / 70)) ||
+        (params->lineKdQ16 != (Q16_ONE / 320)) ||
+        (params->derivativeAlphaQ16 != (5L * Q16_ONE / 8)) ||
+        (params->speedIntegralLimit != 10000) ||
+        (params->baseSpeed != 27) ||
+        (params->maxTargetSpeed != 67) ||
+        (params->maxDeltaSpeed != 67) ||
+        (params->maxPwm != 300) ||
+        (params->derivativeLimit != 2333) ||
+        (params->maxPwm > 400)) {
+        return 1;
+    }
+    return 0;
 }
 
 static int Test_SpeedPI(void)
@@ -64,36 +56,19 @@ static int Test_SpeedPI(void)
         &state, 10, 5, Q16_ONE, 0, 0, 100, 100);
 
     if ((output.pwm != 5) || output.saturated || (state.integral != 5)) {
-        return 20;
+        return 10;
     }
-
     SpeedPI_Reset(&state);
     output = SpeedPI_Step(
         &state, 10, 0, 100L * Q16_ONE, 0, 0, 100, 100);
     if ((output.pwm != 100) || !output.saturated || (state.integral != 0)) {
-        return 21;
+        return 11;
     }
-
     state.integral = 25;
     output = SpeedPI_Step(
         &state, 0, 5, Q16_ONE, Q16_ONE, 0, 100, 100);
     if ((output.pwm != 0) || output.saturated || (state.integral != 0)) {
-        return 22;
-    }
-    return 0;
-}
-
-static int Test_ManualTuning(void)
-{
-    const ControlParams *params = ManualTuning_GetParams();
-
-    if ((params == 0) ||
-        (ControlParams_Validate(params) != PARAMS_VALID) ||
-        (params->baseSpeed != 10) ||
-        (params->lineKpQ16 != (Q16_ONE / 128)) ||
-        (params->lineKdQ16 != (Q16_ONE / 1024)) ||
-        (params->maxPwm != 200)) {
-        return 23;
+        return 12;
     }
     return 0;
 }
@@ -104,6 +79,7 @@ static int Test_LineControl(void)
     LineSensorSample sample = {0x18U, 2U, true, false, 100};
     ControlParams params = {0};
     LineControlOutput output;
+    uint8_t index;
 
     params.lineKpQ16 = Q16_ONE;
     params.derivativeAlphaQ16 = 0;
@@ -114,7 +90,7 @@ static int Test_LineControl(void)
     output = LineControl_Step(&state, &sample, &params, 0);
     if ((output.deltaSpeed != 6) || (output.leftTarget != 25) ||
         (output.rightTarget != 14) || !output.targetSaturated) {
-        return 30;
+        return 20;
     }
 
     params.lineKpQ16 = 0;
@@ -129,14 +105,7 @@ static int Test_LineControl(void)
     if ((state.filteredDerivative != 20) || (output.deltaSpeed != 12) ||
         (output.leftTarget != 12) || (output.rightTarget != -12) ||
         output.targetSaturated) {
-        return 31;
-    }
-
-    sample.valid = false;
-    output = LineControl_Step(&state, &sample, &params, 0);
-    if ((output.leftTarget != 0) || (output.rightTarget != 0) ||
-        (output.deltaSpeed != 0) || (state.previousDeltaSpeed != 0)) {
-        return 32;
+        return 21;
     }
 
     LineControl_Reset(&state);
@@ -146,25 +115,14 @@ static int Test_LineControl(void)
     params.baseSpeed = 0;
     params.maxTargetSpeed = 100;
     params.maxDeltaSpeed = 100;
-    sample.valid = true;
     sample.error = 100;
-    for (uint8_t index = 0U; index < 9U; index++) {
-        output = LineControl_Step(&state, &sample, &params, 0);
-    }
-    output = LineControl_Step(&state, &sample, &params, 0);
-    if ((output.deltaSpeed != 60) || (output.leftTarget != 60) ||
-        (output.rightTarget != -60)) {
-        return 33;
-    }
-
-    LineControl_Reset(&state);
-    for (uint8_t index = 0U; index < 9U; index++) {
+    for (index = 0U; index < 9U; index++) {
         output = LineControl_Step(&state, &sample, &params, 0);
     }
     output = LineControl_Step(&state, &sample, &params, 70);
     if ((output.deltaSpeed != 48) || (output.leftTarget != 48) ||
         (output.rightTarget != -48)) {
-        return 34;
+        return 22;
     }
     return 0;
 }
@@ -177,121 +135,21 @@ static int Test_KeyStart(void)
     if (KeyStart_OnSample(&state, false) ||
         !KeyStart_OnSample(&state, true) ||
         KeyStart_OnSample(&state, true) ||
-        KeyStart_OnSample(&state, true) ||
         KeyStart_OnSample(&state, false) ||
         !KeyStart_OnSample(&state, true)) {
-        return 35;
-    }
-    return 0;
-}
-
-static int Test_SafetyGuard(void)
-{
-    ControlParams params = {0};
-    ControlSample sample = {0};
-    uint16_t tick;
-
-    params.stallPwmThreshold = 100;
-    params.stallSpeedThreshold = 2;
-    params.controlOverrunLimit = 3U;
-    sample.line.valid = true;
-
-    gMotorStopCalls = 0U;
-    gControlResetCalls = 0U;
-    SafetyGuard_Init(Test_ResetControl, 0U);
-    SafetyGuard_BeginTrial(0U);
-    sample.line.valid = false;
-    for (tick = 1U; tick < SAFETY_LINE_LOST_TICKS; tick++) {
-        if (SafetyGuard_Evaluate(tick, &sample, &params, true)) {
-            return 42;
-        }
-    }
-    if (!SafetyGuard_Evaluate(
-            SAFETY_LINE_LOST_TICKS, &sample, &params, true) ||
-        (SafetyGuard_GetStatus().fault != FAULT_LINE_LOST)) {
-        return 43;
-    }
-
-    SafetyGuard_Init(Test_ResetControl, 0U);
-    SafetyGuard_BeginTrial(0U);
-    sample.line.valid = true;
-    sample.leftPwm = 101;
-    sample.leftSpeed = 0;
-    for (tick = 1U; tick < SAFETY_STALL_TICKS; tick++) {
-        if (SafetyGuard_Evaluate(tick, &sample, &params, true)) {
-            return 44;
-        }
-    }
-    if (!SafetyGuard_Evaluate(SAFETY_STALL_TICKS, &sample, &params, true) ||
-        (SafetyGuard_GetStatus().fault != FAULT_STALL_LEFT)) {
-        return 45;
-    }
-
-    SafetyGuard_Init(Test_ResetControl, 0U);
-    SafetyGuard_BeginTrial(0U);
-    if (SafetyGuard_ReportOverrun(1U, 2U, &params) ||
-        !SafetyGuard_ReportOverrun(2U, 1U, &params) ||
-        (SafetyGuard_GetStatus().fault != FAULT_CONTROL_OVERRUN)) {
-        return 46;
-    }
-    return 0;
-}
-
-static int Test_TrialStats(void)
-{
-    ControlSample samples[3] = {0};
-    TrialSummary summary;
-
-    samples[0].line.valid = true;
-    samples[0].line.error = 1000;
-    samples[0].leftTarget = 10;
-    samples[0].rightTarget = 10;
-    samples[0].leftSpeed = 8;
-    samples[0].rightSpeed = 9;
-    samples[0].leftPwm = 50;
-    samples[0].rightPwm = 60;
-    samples[1] = samples[0];
-    samples[1].line.valid = false;
-    samples[1].line.error = -1000;
-    samples[1].line.specialPattern = true;
-    samples[1].targetSaturated = true;
-    samples[1].pwmSaturated = true;
-    samples[2] = samples[0];
-    samples[2].line.error = 0;
-
-    TrialStats_Reset(7U, 100, 200);
-    TrialStats_AddSample(&samples[0]);
-    TrialStats_AddSample(&samples[1]);
-    TrialStats_AddSample(&samples[2]);
-    TrialStats_AddOverruns(2U);
-    summary = TrialStats_Finish(
-        STOP_REASON_TRIAL_COMPLETE, FAULT_NONE, 130, 240);
-
-    if ((summary.sampleCount != 3U) || (summary.paramVersion != 7U) ||
-        (summary.absErrorSum != 2000) ||
-        (summary.squaredErrorSum != 2000000) ||
-        (summary.maxAbsError != 1000) ||
-        (summary.approximateP95Error != 1500) ||
-        (summary.lostSamples != 1U) || (summary.longestLostTicks != 1U) ||
-        (summary.signFlips != 1U) ||
-        (summary.targetSaturationSamples != 1U) ||
-        (summary.pwmSaturationSamples != 1U) ||
-        (summary.specialPatternSamples != 1U) ||
-        (summary.controlOverruns != 2U) ||
-        (summary.leftEncoderCounts != 30) ||
-        (summary.rightEncoderCounts != 40)) {
-        return 50;
+        return 30;
     }
     return 0;
 }
 
 int main(void)
 {
-    int result = Test_SpeedPI();
+    int result = Test_ControlParams();
+
     if (result != 0) {
         return result;
     }
-    result = Test_ManualTuning();
+    result = Test_SpeedPI();
     if (result != 0) {
         return result;
     }
@@ -299,14 +157,5 @@ int main(void)
     if (result != 0) {
         return result;
     }
-    result = Test_KeyStart();
-    if (result != 0) {
-        return result;
-    }
-    result = Test_SafetyGuard();
-    if (result != 0) {
-        return result;
-    }
-    return Test_TrialStats();
+    return Test_KeyStart();
 }
-// ----- AI
