@@ -54,7 +54,7 @@ uint8_t LineSensor_ReadRaw(void)
 LineSensorSample LineSensor_ReadSample(void)
 {
     static const int16_t weights[LINE_SENSOR_COUNT] = {
-        -3500, -2500, -1500, -500, 500, 1500, 2500, 3500
+        -3500, -2500, -2200, -500, 500, 2200, 2500, 3500
     };
     LineSensorSample sample = {0U, 0U, false, false, 0};
     int32_t weightedSum = 0;

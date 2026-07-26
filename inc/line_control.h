@@ -20,6 +20,8 @@ typedef struct {
     int16_t previousError;
     /* 平滑后的 D 项历史值；不是要手动调的速度参数。 */
     int32_t filteredDerivative;
+    /* 上一周期实际输出的左右差速，用于让转弯指令平滑变化。 */
+    int16_t previousDeltaSpeed;
     /* false 表示还没有上一轮数据，因此第一轮 D 项为 0。 */
     bool initialized;
 } LineControlState;

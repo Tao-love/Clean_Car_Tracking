@@ -34,7 +34,7 @@ Require-Match $TuningSource '12L \* Q16_ONE, 0, 42L \* Q16_ONE,' `
     '左速度参数必须匹配 150 Hz 换算。'
 Require-Match $TuningSource '12L \* Q16_ONE, 0, \(69L \* Q16_ONE / 2\),' `
     '右速度参数必须匹配 150 Hz 换算。'
-Require-Match $TuningSource '\(Q16_ONE / 84\), \(Q16_ONE / 448\),' `
+Require-Match $TuningSource '\(Q16_ONE / 70\), \(Q16_ONE / 320\),' `
     '循线 PD 必须匹配 150 Hz 换算。'
 Require-Match $TuningSource '\(5L \* Q16_ONE / 8\), 10000,' `
     'D 滤波时间常数必须保持。'

@@ -12,7 +12,10 @@
 #include "autotune_types.h"
 #include "line_control.h"
 
+#define LINE_DELTA_SLEW_PER_TICK (6)
+
 static int32_t LineControl_ClampI32(int32_t value, int32_t limit);
+static int32_t LineControl_SlewDelta(int16_t previous, int32_t desired);
 static int16_t LineControl_ClampTarget(
     int32_t value, int16_t limit, bool *saturated);
 
@@ -22,6 +25,7 @@ void LineControl_Reset(LineControlState *state)
         /* 清除上一次的位置误差和 D 项滤波历史；每次新试验开始时需要清空。 */
         state->previousError = 0;
         state->filteredDerivative = 0;
+        state->previousDeltaSpeed = 0;
         state->initialized = false;
     }
 }
@@ -49,7 +53,11 @@ LineControlOutput LineControl_Step(LineControlState *state,
      * 不更新历史数据，直接返回 { 左目标=0，右目标=0，差速=0，未限幅 }。
      * 实际的丢线停车计时由 safety_guard 模块处理。
      */
-    if ((state == 0) || (sample == 0) || (params == 0) || !sample->valid) {
+    if ((state == 0) || (sample == 0) || (params == 0)) {
+        return result;
+    }
+    if (!sample->valid) {
+        state->previousDeltaSpeed = 0;
         return result;
     }
 
@@ -83,6 +91,8 @@ LineControlOutput LineControl_Step(LineControlState *state,
         ((int64_t) params->lineKdQ16 * filtered);
     delta = (int32_t) (deltaQ16 / Q16_ONE);
     delta = LineControl_ClampI32(delta, params->maxDeltaSpeed);
+    delta = LineControl_SlewDelta(state->previousDeltaSpeed, delta);
+    state->previousDeltaSpeed = (int16_t) delta;
     /* 保存给调用者查看的左右速度差。 */
     result.deltaSpeed = (int16_t) delta;
     result.leftTarget = LineControl_ClampTarget(
@@ -108,6 +118,19 @@ static int32_t LineControl_ClampI32(int32_t value, int32_t limit)
         return -limit;
     }
     return value;
+}
+
+static int32_t LineControl_SlewDelta(int16_t previous, int32_t desired)
+{
+    int32_t change = desired - previous;
+
+    if (change > LINE_DELTA_SLEW_PER_TICK) {
+        return (int32_t) previous + LINE_DELTA_SLEW_PER_TICK;
+    }
+    if (change < -LINE_DELTA_SLEW_PER_TICK) {
+        return (int32_t) previous - LINE_DELTA_SLEW_PER_TICK;
+    }
+    return desired;
 }
 
 static int16_t LineControl_ClampTarget(

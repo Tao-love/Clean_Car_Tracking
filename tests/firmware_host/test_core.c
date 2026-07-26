@@ -282,7 +282,7 @@ static int Test_ManualTuning(void)
 
 static int Test_LineControl(void)
 {
-    LineControlState state = {0, 0, false};
+    LineControlState state = {0, 0, 0, false};
     LineSensorSample sample = {0x18U, 2U, true, false, 100};
     ControlParams params = {0};
     LineControlOutput output;
@@ -294,8 +294,8 @@ static int Test_LineControl(void)
     params.maxDeltaSpeed = 10;
     params.derivativeLimit = 1000;
     output = LineControl_Step(&state, &sample, &params);
-    if ((output.deltaSpeed != 10) || (output.leftTarget != 25) ||
-        (output.rightTarget != 10) || !output.targetSaturated) {
+    if ((output.deltaSpeed != 6) || (output.leftTarget != 25) ||
+        (output.rightTarget != 14) || !output.targetSaturated) {
         return 30;
     }
 
@@ -308,8 +308,8 @@ static int Test_LineControl(void)
     params.derivativeLimit = 40;
     sample.error = 200;
     output = LineControl_Step(&state, &sample, &params);
-    if ((state.filteredDerivative != 20) || (output.deltaSpeed != 20) ||
-        (output.leftTarget != 20) || (output.rightTarget != -20) ||
+    if ((state.filteredDerivative != 20) || (output.deltaSpeed != 12) ||
+        (output.leftTarget != 12) || (output.rightTarget != -12) ||
         output.targetSaturated) {
         return 31;
     }
@@ -317,7 +317,7 @@ static int Test_LineControl(void)
     sample.valid = false;
     output = LineControl_Step(&state, &sample, &params);
     if ((output.leftTarget != 0) || (output.rightTarget != 0) ||
-        (output.deltaSpeed != 0)) {
+        (output.deltaSpeed != 0) || (state.previousDeltaSpeed != 0)) {
         return 32;
     }
     return 0;
