@@ -138,6 +138,24 @@ static int Test_InvalidFramesAreAtomic(void)
     return 0;
 }
 
+static int Test_RejectsUpdateWithoutResetCallback(void)
+{
+    ControlParams params = Test_DefaultParams();
+    ControlParams unchanged = params;
+    UARTAutoPidConfig config = {&params, 0, 0};
+    char line[160];
+
+    UART_Auto_PID_Init(&config);
+    Test_Frame(line, sizeof(line),
+        "SETALL SEQ:9 LKP:1.5 LKI:0.25 RKP:2.75 RKI:0.125 "
+        "LINEP:0.5 LINED:0.0625");
+    if (UART_Auto_PID_ProcessLineForTest(line) ||
+        (memcmp(&params, &unchanged, sizeof(params)) != 0)) {
+        return 15;
+    }
+    return 0;
+}
+
 static int Test_TelemetryIsThrottled(void)
 {
     ControlParams params = Test_DefaultParams();
@@ -169,6 +187,10 @@ int main(void)
         return result;
     }
     result = Test_InvalidFramesAreAtomic();
+    if (result != 0) {
+        return result;
+    }
+    result = Test_RejectsUpdateWithoutResetCallback();
     if (result != 0) {
         return result;
     }

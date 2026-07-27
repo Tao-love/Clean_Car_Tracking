@@ -57,7 +57,8 @@ bool UART_Auto_PID_ProcessLineForTest(const char *line)
     int8_t lowNibble;
     ControlParams candidate;
 
-    if ((line == 0) || (gConfig.params == 0)) {
+    if ((line == 0) || (gConfig.params == 0) ||
+        (gConfig.requestControlReset == 0)) {
         return false;
     }
     for (length = 0U; length <= UART_AUTO_PID_MAX_LINE; length++) {
