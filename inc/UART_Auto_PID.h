@@ -53,8 +53,8 @@ void UART_Auto_PID_Init(const UARTAutoPidConfig *config);
 void UART_Auto_PID_Service(void);
 
 /*
- * 无硬件测试入口：处理一条 ASCII 命令并返回完整 SETALL 是否已经提交。
- * STATUS 不改变参数/运行状态，且此入口不排队响应或执行 UART I/O。
+ * 无硬件测试入口：处理一条 ASCII 命令并返回受保护 SETALL 或 RUN 是否
+ * 已被接受。STATUS 不改变参数/运行状态，且此入口不排队响应或执行 UART I/O。
  */
 bool UART_Auto_PID_ProcessLineForTest(const char *line);
 

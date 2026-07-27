@@ -51,7 +51,8 @@ foreach ($token in @(
     'DL_UART_Main_isTXFIFOFull', 'DL_UART_Main_transmitData',
     'UART_DEBUG_INST', 'UART_Auto_PID_FormatTelemetry',
     'UART_AUTO_PID_TELEMETRY_COLUMNS', 'UART_Auto_PID_Checksum',
-    'UART_Auto_PID_ProtectFrame', 'STATUS', 'SETALL', 'ACK,', 'ERR,'
+    'UART_Auto_PID_ProtectFrame', 'STATUS', 'SETALL', 'RUN',
+    'LineRun_IsRunning', 'LineRun_Start', 'ACK,', 'ERR,'
 )) {
     if (-not $Source.Contains($token)) {
         throw "UART2 运行时/协议契约缺失: $token"

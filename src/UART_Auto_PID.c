@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "UART_Auto_PID.h"
+#include "line_run.h"
 #include "ti_msp_dl_config.h"
 
 #define UART_AUTO_PID_SPEED_GAIN_MAX_Q16 (64L * Q16_ONE)
@@ -52,11 +53,14 @@ static bool UART_Auto_PID_ParseQ16(const char *text, size_t length,
     int32_t *value);
 static bool UART_Auto_PID_ParseSetAll(const char *body, size_t bodyLength,
     ControlParams *candidate, uint16_t *sequence);
+static bool UART_Auto_PID_ParseRun(const char *body, size_t bodyLength,
+    uint16_t *sequence);
 static bool UART_Auto_PID_GainsAreValid(const ControlParams *params);
 static int8_t UART_Auto_PID_HexValue(char character);
 static uint8_t UART_Auto_PID_Checksum(const char *text, size_t length);
 static bool UART_Auto_PID_ExtractSequence(const char *body,
     size_t bodyLength, uint16_t *sequence);
+static bool UART_Auto_PID_IsRunCommand(const char *text, size_t length);
 static UARTAutoPidCommandResult UART_Auto_PID_ProcessLine(
     const char *line, size_t length, uint16_t *sequence,
     const char **reason);
@@ -400,6 +404,42 @@ static bool UART_Auto_PID_ParseSetAll(const char *body, size_t bodyLength,
     return seen == UART_AUTO_PID_REQUIRED_FIELDS;
 }
 
+static bool UART_Auto_PID_ParseRun(const char *body, size_t bodyLength,
+    uint16_t *sequence)
+{
+    size_t index = 3U;
+    size_t tokenStart;
+    size_t tokenEnd;
+
+    if ((sequence == 0) || (bodyLength < 3U) ||
+        !UART_Auto_PID_Matches(body, 3U, "RUN") ||
+        ((index == bodyLength) || !UART_Auto_PID_IsSpace(body[index]))) {
+        return false;
+    }
+    while ((index < bodyLength) && UART_Auto_PID_IsSpace(body[index])) {
+        index++;
+    }
+    tokenStart = index;
+    while ((index < bodyLength) && !UART_Auto_PID_IsSpace(body[index])) {
+        index++;
+    }
+    tokenEnd = index;
+    if ((tokenEnd <= (tokenStart + 4U)) ||
+        !UART_Auto_PID_Matches(&body[tokenStart], 3U, "SEQ") ||
+        (body[tokenStart + 3U] != ':') ||
+        !UART_Auto_PID_ParseSequence(&body[tokenStart + 4U],
+            tokenEnd - tokenStart - 4U, sequence)) {
+        return false;
+    }
+    while (index < bodyLength) {
+        if (!UART_Auto_PID_IsSpace(body[index])) {
+            return false;
+        }
+        index++;
+    }
+    return true;
+}
+
 static bool UART_Auto_PID_GainsAreValid(const ControlParams *params)
 {
     return (params->speedKpLeftQ16 >= 0) &&
@@ -446,8 +486,13 @@ static bool UART_Auto_PID_ExtractSequence(const char *body,
 {
     size_t index = 6U;
 
-    if ((sequence == 0) || (bodyLength < 6U) ||
-        !UART_Auto_PID_Matches(body, 6U, "SETALL")) {
+    if ((sequence == 0) || (bodyLength < 3U)) {
+        return false;
+    }
+    if (UART_Auto_PID_IsRunCommand(body, bodyLength)) {
+        return UART_Auto_PID_ParseRun(body, bodyLength, sequence);
+    }
+    if ((bodyLength < 6U) || !UART_Auto_PID_Matches(body, 6U, "SETALL")) {
         return false;
     }
     while (index < bodyLength) {
@@ -473,6 +518,13 @@ static bool UART_Auto_PID_ExtractSequence(const char *body,
     return false;
 }
 
+static bool UART_Auto_PID_IsRunCommand(const char *text, size_t length)
+{
+    return (length >= 3U) && UART_Auto_PID_Matches(text, 3U, "RUN") &&
+        ((length == 3U) || UART_Auto_PID_IsSpace(text[3]) ||
+            (text[3] == '*'));
+}
+
 static UARTAutoPidCommandResult UART_Auto_PID_ProcessLine(
     const char *line, size_t length, uint16_t *sequence,
     const char **reason)
@@ -483,13 +535,17 @@ static UARTAutoPidCommandResult UART_Auto_PID_ProcessLine(
     int8_t highNibble;
     int8_t lowNibble;
     ControlParams candidate;
+    bool isSetAll;
+    bool isRun;
 
     *sequence = 0U;
     *reason = "FORMAT";
     if (UART_Auto_PID_Matches(line, length, "STATUS")) {
         return UART_AUTO_PID_COMMAND_STATUS;
     }
-    if ((length < 6U) || !UART_Auto_PID_Matches(line, 6U, "SETALL")) {
+    isSetAll = (length >= 6U) && UART_Auto_PID_Matches(line, 6U, "SETALL");
+    isRun = UART_Auto_PID_IsRunCommand(line, length);
+    if (!isSetAll && !isRun) {
         return UART_AUTO_PID_COMMAND_IGNORED;
     }
     for (index = 0U; index < length; index++) {
@@ -515,6 +571,20 @@ static UARTAutoPidCommandResult UART_Auto_PID_ProcessLine(
         (uint8_t) lowNibble)) {
         *reason = "CHECKSUM";
         return UART_AUTO_PID_COMMAND_REJECTED;
+    }
+    if (isRun) {
+        if (!UART_Auto_PID_ParseRun(line, star, sequence)) {
+            return UART_AUTO_PID_COMMAND_REJECTED;
+        }
+        if (LineRun_IsRunning()) {
+            *reason = "BUSY";
+            return UART_AUTO_PID_COMMAND_REJECTED;
+        }
+        if (!LineRun_Start()) {
+            *reason = "STATE";
+            return UART_AUTO_PID_COMMAND_REJECTED;
+        }
+        return UART_AUTO_PID_COMMAND_ACCEPTED;
     }
     if ((gConfig.params == 0) || (gConfig.requestControlReset == 0)) {
         *reason = "STATE";

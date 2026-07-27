@@ -8,6 +8,9 @@
 #include "UART_Auto_PID.h"
 
 static uint32_t gResetRequests;
+static uint32_t gRunStartRequests;
+static bool gRunActive;
+static bool gRunStartAllowed;
 static volatile int gTestResult;
 
 void (*const interruptVectors[])(void)
@@ -26,6 +29,21 @@ static void Test_RequestReset(void *context)
 {
     (void) context;
     gResetRequests++;
+}
+
+bool LineRun_IsRunning(void)
+{
+    return gRunActive;
+}
+
+bool LineRun_Start(void)
+{
+    gRunStartRequests++;
+    if (!gRunStartAllowed) {
+        return false;
+    }
+    gRunActive = true;
+    return true;
 }
 
 static ControlParams Test_DefaultParams(void)
@@ -179,6 +197,57 @@ static int Test_TelemetryIsThrottled(void)
     return UART_Auto_PID_IsTelemetryReadyForTest() ? 23 : 0;
 }
 
+static int Test_RunCommandRequiresProtectedIdleStart(void)
+{
+    ControlParams params = Test_DefaultParams();
+    ControlParams unchanged = params;
+    UARTAutoPidConfig config = {&params, Test_RequestReset, 0};
+    char line[40];
+
+    gResetRequests = 0U;
+    gRunStartRequests = 0U;
+    gRunActive = false;
+    gRunStartAllowed = true;
+    UART_Auto_PID_Init(&config);
+
+    Test_Frame(line, sizeof(line), "RUN SEQ:18");
+    if (!UART_Auto_PID_ProcessLineForTest(line) ||
+        (gRunStartRequests != 1U) || !gRunActive ||
+        (memcmp(&params, &unchanged, sizeof(params)) != 0) ||
+        (gResetRequests != 0U)) {
+        return 30;
+    }
+
+    gRunActive = false;
+    line[strlen(line) - 1U] = (line[strlen(line) - 1U] == '0') ? '1' : '0';
+    if (UART_Auto_PID_ProcessLineForTest(line) ||
+        (gRunStartRequests != 1U) || gRunActive) {
+        return 31;
+    }
+
+    Test_Frame(line, sizeof(line), "RUN");
+    if (UART_Auto_PID_ProcessLineForTest(line) ||
+        (gRunStartRequests != 1U) || gRunActive) {
+        return 32;
+    }
+
+    gRunActive = true;
+    Test_Frame(line, sizeof(line), "RUN SEQ:19");
+    if (UART_Auto_PID_ProcessLineForTest(line) ||
+        (gRunStartRequests != 1U)) {
+        return 33;
+    }
+
+    gRunActive = false;
+    gRunStartAllowed = false;
+    Test_Frame(line, sizeof(line), "RUN SEQ:20");
+    if (UART_Auto_PID_ProcessLineForTest(line) ||
+        (gRunStartRequests != 2U) || gRunActive) {
+        return 34;
+    }
+    return 0;
+}
+
 int main(void)
 {
     int result = Test_AcceptsCompleteSetAll();
@@ -194,5 +263,9 @@ int main(void)
     if (result != 0) {
         return result;
     }
-    return Test_TelemetryIsThrottled();
+    result = Test_TelemetryIsThrottled();
+    if (result != 0) {
+        return result;
+    }
+    return Test_RunCommandRequiresProtectedIdleStart();
 }
