@@ -82,6 +82,23 @@ try {
     & $Compiler @ContractLinkArgs
     if ($LASTEXITCODE -ne 0) { throw '固件纯 C 契约测试链接失败' }
 
+    $UartAutoPidTestSource = '.\tests\firmware_host\test_uart_auto_pid.c'
+    $UartAutoPidTestObject = Join-Path $Output 'test_uart_auto_pid.o'
+    & $Compiler @Common -c $UartAutoPidTestSource -o $UartAutoPidTestObject
+    if ($LASTEXITCODE -ne 0) { throw 'UART 自动调参协议契约测试编译失败' }
+    $UartAutoPidContract = Join-Path $Output 'test_uart_auto_pid.out'
+    $UartAutoPidLinkArgs = @(
+        '@syscfg_gen/device.opt',
+        '-march=thumbv6m', '-mcpu=cortex-m0plus', '-mfloat-abi=soft',
+        '-mlittle-endian', '-mthumb', '-O2', '-gdwarf-3',
+        '-Wall', '-Wextra', '-Werror', '-Wl,--rom_model',
+        '-o', $UartAutoPidContract, $UartAutoPidTestObject,
+        (Join-Path $Output 'UART_Auto_PID.o'),
+        '-Wl,syscfg_gen\device_linker.cmd'
+    )
+    & $Compiler @UartAutoPidLinkArgs
+    if ($LASTEXITCODE -ne 0) { throw 'UART 自动调参协议契约测试链接失败' }
+
     $LineRunTestSource = '.\tests\firmware_host\test_line_run.c'
     $LineRunTestObject = Join-Path $Output 'test_line_run.o'
     & $Compiler @Common -c $LineRunTestSource -o $LineRunTestObject
