@@ -14,8 +14,8 @@
 #define PARAM_DERIVATIVE_MAX        (7000)
 
 static ControlParams gControlParams = {
-    12L * Q16_ONE, 0, 42L * Q16_ONE,
-    12L * Q16_ONE, 0, (69L * Q16_ONE / 2),
+    12L * Q16_ONE, 0, 7L * Q16_ONE,
+    12L * Q16_ONE, 0, 6L * Q16_ONE,
     (Q16_ONE / 70), (Q16_ONE / 320),
     (5L * Q16_ONE / 8), 10000,
     27, 67, 67,

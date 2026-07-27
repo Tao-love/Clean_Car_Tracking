@@ -30,10 +30,10 @@ static int Test_ControlParams(void)
     if ((params == 0) ||
         (params->speedKpLeftQ16 != (12L * Q16_ONE)) ||
         (params->speedKiLeftQ16 != 0) ||
-        (params->speedFeedforwardLeftQ16 != (42L * Q16_ONE)) ||
+        (params->speedFeedforwardLeftQ16 != (7L * Q16_ONE)) ||
         (params->speedKpRightQ16 != (12L * Q16_ONE)) ||
         (params->speedKiRightQ16 != 0) ||
-        (params->speedFeedforwardRightQ16 != (69L * Q16_ONE / 2)) ||
+        (params->speedFeedforwardRightQ16 != (6L * Q16_ONE)) ||
         (params->lineKpQ16 != (Q16_ONE / 70)) ||
         (params->lineKdQ16 != (Q16_ONE / 320)) ||
         (params->derivativeAlphaQ16 != (5L * Q16_ONE / 8)) ||
