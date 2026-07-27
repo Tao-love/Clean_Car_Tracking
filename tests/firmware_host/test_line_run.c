@@ -16,10 +16,12 @@ static ControlParams gParams;
 static const ControlParams *gParamsResult = &gParams;
 static LineSensorSample gSensorSample;
 static LineSensorSample gLastLineInput;
+static int16_t gLastTurnDamping;
 static uint32_t gEncoderInitCalls;
 static uint32_t gEncoderUpdateCalls;
 static uint32_t gMotorSetCalls;
 static uint32_t gMotorStopCalls;
+static uint32_t gMpuUpdateCalls;
 static uint32_t gLineResetCalls;
 static uint32_t gSpeedResetCalls;
 static int gTestResult;
@@ -49,8 +51,8 @@ void Motor_SetSpeed(int16_t leftPwm, int16_t rightPwm)
     gMotorSetCalls++;
 }
 void Motor_Stop(void) { gMotorStopCalls++; }
-void MPU6050_Update(void) { }
-int16_t MPU6050_GetTurnDamping(void) { return 0; }
+void MPU6050_Update(void) { gMpuUpdateCalls++; }
+int16_t MPU6050_GetTurnDamping(void) { return 17; }
 
 void LineControl_Reset(LineControlState *state)
 {
@@ -65,7 +67,7 @@ LineControlOutput LineControl_Step(LineControlState *state,
     LineControlOutput output = {11, 12, 1, false};
     (void) state;
     (void) params;
-    (void) turnDamping;
+    gLastTurnDamping = turnDamping;
     gLastLineInput = *sample;
     return output;
 }
@@ -182,6 +184,12 @@ static int Test_StopClearsControlState(void)
     LineRun_ControlTick();
     if (gLastLineInput.error != 0) {
         return 22;
+    }
+    if (gLastTurnDamping != 17) {
+        return 23;
+    }
+    if (gMpuUpdateCalls == 0U) {
+        return 24;
     }
     return 0;
 }

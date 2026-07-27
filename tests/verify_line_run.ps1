@@ -24,6 +24,12 @@ if ($Source -notmatch 'gRunTicks\+\+;' -or
 if ($Source -notmatch 'line\.error\s*=\s*gHasLastLineError\s*\?\s*gLastLineError\s*:\s*0;') {
     throw '无效灰度必须沿用本轮最后有效误差；尚无样本时使用 0。'
 }
+if ($Source -notmatch '\bMPU6050_Update\(\);') {
+    throw '循线控制周期必须更新 MPU6050 角速度。'
+}
+if ($Source -notmatch 'LineControl_Step\(\s*&gLineState,\s*&line,\s*gParams,\s*MPU6050_GetTurnDamping\(\)\)') {
+    throw '循线器必须接收 MPU6050 的转向阻尼。'
+}
 if ($Source -notmatch 'LineControl_Reset' -or
     $Source -notmatch 'SpeedPI_Reset' -or
     $Source -notmatch 'gLastLineError\s*=\s*0;' -or
