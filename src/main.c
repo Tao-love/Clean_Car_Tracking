@@ -12,6 +12,8 @@
 
 #include <stdint.h>
 
+#include "UART_Auto_PID.h"
+#include "control_params.h"
 #include "ti_msp_dl_config.h"
 #include "key_start.h"
 #include "line_run.h"
@@ -22,6 +24,7 @@
 volatile uint32_t gControlTick = 0U;
 
 static void App_HandleKey1(void);
+static void App_RequestControlReset(void *context);
 static KeyStartState gKey1StartState;
 
 int main(void)
@@ -36,6 +39,13 @@ int main(void)
         for (;;) {
             /* 固定参数未通过范围检查，保持统一停车。 */
         }
+    }
+    {
+        UARTAutoPidConfig config = {
+            ControlParams_GetMutableForUart(), App_RequestControlReset, 0
+        };
+
+        UART_Auto_PID_Init(&config);
     }
     KeyStart_Init(&gKey1StartState);
 
@@ -54,6 +64,12 @@ int main(void)
             lastProcessedTick = currentTick;
         }
     }
+}
+
+static void App_RequestControlReset(void *context)
+{
+    (void) context;
+    LineRun_ResetForTuningUpdate();
 }
 
 /* KEY1 按下沿在 IDLE 启动；RUNNING 时立即停车，下一次按下才重启。 */

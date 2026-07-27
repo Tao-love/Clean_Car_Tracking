@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "UART_Auto_PID.h"
 #include "control_params.h"
 #include "control_types.h"
 #include "encoder.h"
@@ -22,14 +23,19 @@ static int16_t gLastLineError;
 static bool gHasLastLineError;
 static bool gRunning;
 
-static void LineRun_ResetControlState(void)
+static void LineRun_ResetControllerState(void)
 {
     LineControl_Reset(&gLineState);
     SpeedPI_Reset(&gLeftPiState);
     SpeedPI_Reset(&gRightPiState);
-    gRunTicks = 0U;
     gLastLineError = 0;
     gHasLastLineError = false;
+}
+
+static void LineRun_ResetControlState(void)
+{
+    LineRun_ResetControllerState();
+    gRunTicks = 0U;
 }
 
 bool LineRun_Init(void)
@@ -59,12 +65,20 @@ void LineRun_Stop(void)
     LineRun_ResetControlState();
 }
 
+void LineRun_ResetForTuningUpdate(void)
+{
+    LineRun_ResetControllerState();
+}
+
 void LineRun_ControlTick(void)
 {
     LineSensorSample line;
     LineControlOutput lineOutput;
     SpeedPIOutput leftOutput;
     SpeedPIOutput rightOutput;
+    UARTAutoPidControlSample controlSample;
+    int16_t leftSpeed;
+    int16_t rightSpeed;
 
     if (!gRunning) {
         return;
@@ -82,17 +96,29 @@ void LineRun_ControlTick(void)
     MPU6050_Update();
     lineOutput = LineControl_Step(
         &gLineState, &line, gParams, MPU6050_GetTurnDamping());
+    leftSpeed = Encoder_GetLeftSpeed();
+    rightSpeed = Encoder_GetRightSpeed();
     leftOutput = SpeedPI_Step(&gLeftPiState,
-        lineOutput.leftTarget, Encoder_GetLeftSpeed(),
+        lineOutput.leftTarget, leftSpeed,
         gParams->speedKpLeftQ16, gParams->speedKiLeftQ16,
         gParams->speedFeedforwardLeftQ16, gParams->speedIntegralLimit,
         gParams->maxPwm);
     rightOutput = SpeedPI_Step(&gRightPiState,
-        lineOutput.rightTarget, Encoder_GetRightSpeed(),
+        lineOutput.rightTarget, rightSpeed,
         gParams->speedKpRightQ16, gParams->speedKiRightQ16,
         gParams->speedFeedforwardRightQ16, gParams->speedIntegralLimit,
         gParams->maxPwm);
     Motor_SetSpeed(leftOutput.pwm, rightOutput.pwm);
+    controlSample.timestampMs = ((uint32_t) gRunTicks * 20U) / 3U;
+    controlSample.lineError = line.error;
+    controlSample.leftTarget = lineOutput.leftTarget;
+    controlSample.leftSpeed = leftSpeed;
+    controlSample.rightTarget = lineOutput.rightTarget;
+    controlSample.rightSpeed = rightSpeed;
+    controlSample.leftPwm = leftOutput.pwm;
+    controlSample.rightPwm = rightOutput.pwm;
+    controlSample.running = gRunning;
+    UART_Auto_PID_OnControlSample(&controlSample);
 
     gRunTicks++;
     if (gRunTicks >= LINE_RUN_DURATION_TICKS) {

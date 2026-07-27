@@ -12,4 +12,7 @@ void LineRun_Stop(void);
 void LineRun_ControlTick(void);
 bool LineRun_IsRunning(void);
 
+/* UART 调参提交后清除循线与两侧速度 PI 的历史状态。 */
+void LineRun_ResetForTuningUpdate(void);
+
 #endif /* LINE_RUN_H */

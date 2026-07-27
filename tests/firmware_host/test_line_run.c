@@ -2,7 +2,9 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 
+#include "UART_Auto_PID.h"
 #include "control_types.h"
 #include "encoder.h"
 #include "gray_sensor.h"
@@ -194,6 +196,54 @@ static int Test_StopClearsControlState(void)
     return 0;
 }
 
+static uint8_t Test_Xor(const char *text)
+{
+    uint8_t checksum = 0U;
+
+    while (*text != '\0') {
+        checksum ^= (uint8_t) *text;
+        text++;
+    }
+    return checksum;
+}
+
+static void Test_Frame(char *destination, size_t destinationSize,
+    const char *body)
+{
+    (void) snprintf(destination, destinationSize, "%s*%02X", body,
+        (unsigned int) Test_Xor(body));
+}
+
+static void Test_RequestControlReset(void *context)
+{
+    (void) context;
+    LineRun_ResetForTuningUpdate();
+}
+
+static int Test_AcceptedTuningUpdateResetsControlState(void)
+{
+    UARTAutoPidConfig config = {&gParams, Test_RequestControlReset, 0};
+    uint32_t lineResets;
+    uint32_t speedResets;
+    char line[160];
+
+    LineRun_Stop();
+    if (!LineRun_Start()) {
+        return 30;
+    }
+    lineResets = gLineResetCalls;
+    speedResets = gSpeedResetCalls;
+    UART_Auto_PID_Init(&config);
+    Test_Frame(line, sizeof(line),
+        "SETALL SEQ:1 LKP:1 LKI:0 RKP:1 RKI:0 LINEP:0.5 LINED:0.25");
+    if (!UART_Auto_PID_ProcessLineForTest(line) ||
+        (gLineResetCalls != (lineResets + 1U)) ||
+        (gSpeedResetCalls != (speedResets + 2U))) {
+        return 31;
+    }
+    return 0;
+}
+
 int main(void)
 {
     int result;
@@ -211,6 +261,10 @@ int main(void)
     if (result != 0) {
         return result;
     }
+    result = Test_AcceptedTuningUpdateResetsControlState();
+    if (result != 0) {
+        return result;
+    }
     LineRun_Stop();
     gParamsResult = 0;
     if (LineRun_Init()) {
@@ -218,3 +272,6 @@ int main(void)
     }
     return 0;
 }
+
+/* Link the DriverLib-free protocol core into this composition contract. */
+#include "../../src/UART_Auto_PID.c"

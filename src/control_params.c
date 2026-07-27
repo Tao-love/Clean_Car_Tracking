@@ -13,7 +13,7 @@
 #define PARAM_PWM_MAX               (400)
 #define PARAM_DERIVATIVE_MAX        (7000)
 
-static const ControlParams gControlParams = {
+static ControlParams gControlParams = {
     12L * Q16_ONE, 0, 42L * Q16_ONE,
     12L * Q16_ONE, 0, (69L * Q16_ONE / 2),
     (Q16_ONE / 70), (Q16_ONE / 320),
@@ -63,4 +63,9 @@ static bool ControlParams_IsValid(const ControlParams *params)
 const ControlParams *ControlParams_Get(void)
 {
     return ControlParams_IsValid(&gControlParams) ? &gControlParams : 0;
+}
+
+ControlParams *ControlParams_GetMutableForUart(void)
+{
+    return &gControlParams;
 }
