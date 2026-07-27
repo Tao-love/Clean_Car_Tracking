@@ -63,6 +63,8 @@ int main(void)
             LineRun_ControlTick();
             lastProcessedTick = currentTick;
         }
+        /* 主循环非阻塞轮询 UART2；控制 tick 和 ISR 均不执行串口 I/O。 */
+        UART_Auto_PID_Service();
     }
 }
 

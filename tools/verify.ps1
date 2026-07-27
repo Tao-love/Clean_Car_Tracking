@@ -37,6 +37,11 @@ try {
         --treatWarningsAsErrors
     if ($LASTEXITCODE -ne 0) { throw 'SysConfig 生成失败' }
 
+    # 生成后核对 UART2 115200、运行时非阻塞 DriverLib API、主循环服务边界
+    # 以及受保护 21 列遥测契约，避免旧的 9600/no-runtime 生成物通过构建。
+    & '.\tests\verify_uart2_syscfg.ps1'
+    if ($LASTEXITCODE -ne 0) { throw 'UART2 运行时源码契约验证失败' }
+
     $Compiler = Join-Path $CompilerRoot 'bin\tiarmclang.exe'
     $Common = @(
         '@syscfg_gen/device.opt',
