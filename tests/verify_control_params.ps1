@@ -8,8 +8,8 @@ if ($Header -notmatch 'const\s+ControlParams\s+\*ControlParams_Get\(void\);') {
     throw '参数模块必须只读公开 ControlParams_Get()。'
 }
 foreach ($pattern in @(
-    '12L \* Q16_ONE, 0, 7L \* Q16_ONE,',
-    '12L \* Q16_ONE, 0, 6L \* Q16_ONE,',
+    '12L \* Q16_ONE, 0, 42L \* Q16_ONE,',
+    '12L \* Q16_ONE, 0, \(69L \* Q16_ONE / 2\),',
     '\(Q16_ONE / 70\), \(Q16_ONE / 320\),',
     '\(5L \* Q16_ONE / 8\), 10000,',
     '27, 67, 67,',
