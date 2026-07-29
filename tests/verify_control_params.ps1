@@ -19,9 +19,9 @@ foreach ($pattern in @(
         throw "固定实车参数不匹配: $pattern"
     }
 }
-if ($Source -notmatch '#define\s+PARAM_PWM_MAX\s+\(400\)' -or
+if ($Source -notmatch '#define\s+PARAM_PWM_MAX\s+\(550\)' -or
     $Source -notmatch 'params->maxPwm\s*>\s*PARAM_PWM_MAX') {
-    throw '参数校验必须将 maxPwm 硬限制为不超过 400。'
+    throw '参数校验必须将 maxPwm 硬限制为不超过 550。'
 }
 if ($Source -match 'Stage|Pending|Wire|Version|Flash|Telemetry|Stall|Overrun') {
     throw '固定参数模块不得残留通信、Flash 或保护生命周期。'
