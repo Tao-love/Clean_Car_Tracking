@@ -99,14 +99,12 @@ static void Motor_SetLeftDirection(bool forward)
 static void Motor_SetRightDirection(bool forward)
 {
     if (forward) {
-        /* 右轮正转：拉高 BIN1。 */
+        /* 右轮车前进：BIN1 高、BIN2 低。 */
         DL_GPIO_setPins(GPIO_MOTOR_PORT, GPIO_MOTOR_MOTOR_BIN1_PIN);
-        /* 右轮正转：同时拉低 BIN2。 */
         DL_GPIO_clearPins(GPIO_MOTOR_PORT, GPIO_MOTOR_MOTOR_BIN2_PIN);
     } else {
-        /* 右轮反转：拉低 BIN1。 */
+        /* 右轮反转：BIN1 低、BIN2 高。 */
         DL_GPIO_clearPins(GPIO_MOTOR_PORT, GPIO_MOTOR_MOTOR_BIN1_PIN);
-        /* 右轮反转：同时拉高 BIN2。 */
         DL_GPIO_setPins(GPIO_MOTOR_PORT, GPIO_MOTOR_MOTOR_BIN2_PIN);
     }
 }

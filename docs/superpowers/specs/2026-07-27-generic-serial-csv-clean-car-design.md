@@ -39,7 +39,7 @@ RUN SEQ:18*HH
 
 ### Firmware telemetry
 
-遥测每 3 个控制 tick（50 Hz）生成一次，最长 128 个 ASCII 字节。前 11 列保留 generic CSV 的控制器 1/2 位置；扩展 profile 解释其余列。
+遥测每 3 个控制 tick（50 Hz）生成一次，最长 128 个 ASCII 字节。前 11 列保留 generic CSV 的控制器 1/2 位置；扩展 profile 解释其余列。每轮 `LineRun_Stop()` 后还必须排队一帧 `running=0` 的终止遥测；上位机在收到这帧前不得分析或下发下一组参数。
 
 ```text
 timestamp_ms,setpoint,input,pwm,error,p,i,d,p2,i2,d2,line_error,left_target,left_speed,right_target,right_speed,left_pwm,right_pwm,running,line_kp,line_kd*HH

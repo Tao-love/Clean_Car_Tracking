@@ -32,7 +32,6 @@ int main(void)
     uint32_t lastProcessedTick = 0U;
     /* 按 SysConfig 生成配置初始化时钟、GPIO、PWM 和定时器；此时 PWM 默认比较值为 0。 */
     SYSCFG_DL_init();
-    MPU6050_InitAndCalibrate();
     /* Motor_Init 的第一个硬件动作是同时清零两路 PWM 和四个方向脚。 */
     Motor_Init();
     if (!LineRun_Init()) {

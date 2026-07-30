@@ -11,9 +11,9 @@
 #define ENCODER_FILTER_CURR_WEIGHT (7)
 #define ENCODER_FILTER_SCALE       (10)
 
-/* 悬空测试若发现正向 PWM 得到负速度，只修改对应常量为 1。 */
+/* 右轮正 PWM 已映射为车辆前进；该机械安装下原始 AB 相前进为负，需反相为正反馈。 */
 #define ENCODER_LEFT_REVERSE  (0)
-#define ENCODER_RIGHT_REVERSE (0)
+#define ENCODER_RIGHT_REVERSE (1)
 
 static volatile int32_t gLeftCount;
 static volatile int32_t gRightCount;

@@ -12,7 +12,7 @@ foreach ($pattern in @(
     '12L \* Q16_ONE, 0, \(69L \* Q16_ONE / 2\),',
     '\(Q16_ONE / 70\), \(Q16_ONE / 320\),',
     '\(5L \* Q16_ONE / 8\), 10000,',
-    '27, 67, 67,',
+    '10, 67, 67,',
     '300, 2333'
 )) {
     if ($Source -notmatch $pattern) {

@@ -11,6 +11,8 @@ static uint32_t gResetRequests;
 static uint32_t gRunStartRequests;
 static bool gRunActive;
 static bool gRunStartAllowed;
+static bool gBenchActive;
+static int16_t gBenchTarget;
 static volatile int gTestResult;
 
 void (*const interruptVectors[])(void)
@@ -43,6 +45,32 @@ bool LineRun_Start(void)
         return false;
     }
     gRunActive = true;
+    return true;
+}
+
+bool LineRun_StartBench(void)
+{
+    gRunStartRequests++;
+    if (!gRunStartAllowed) {
+        return false;
+    }
+    gRunActive = true;
+    gBenchActive = true;
+    gBenchTarget = 5;
+    return true;
+}
+
+bool LineRun_IsBenchRunning(void)
+{
+    return gRunActive && gBenchActive;
+}
+
+bool LineRun_SetBenchTarget(int16_t target)
+{
+    if (!LineRun_IsBenchRunning() || (target < 1) || (target > 8)) {
+        return false;
+    }
+    gBenchTarget = target;
     return true;
 }
 
@@ -86,15 +114,18 @@ static int Test_AcceptsCompleteSetAll(void)
     gResetRequests = 0U;
     UART_Auto_PID_Init(&config);
     Test_Frame(line, sizeof(line),
-        "SETALL SEQ:17 LKP:1.500000 LKI:0.250000 RKP:2.750000 "
-        "RKI:0.125000 LINEP:0.500000 LINED:0.062500");
+        "SETALL SEQ:17 LKP:1.500000 LKI:0.250000 LFF:4.250000 "
+        "RKP:2.750000 RKI:0.125000 RFF:3.500000 LINEP:0.500000 "
+        "LINED:0.062500");
     if (!UART_Auto_PID_ProcessLineForTest(line)) {
         return 1;
     }
     if ((params.speedKpLeftQ16 != (3L * Q16_ONE / 2)) ||
         (params.speedKiLeftQ16 != (Q16_ONE / 4)) ||
+        (params.speedFeedforwardLeftQ16 != (17L * Q16_ONE / 4)) ||
         (params.speedKpRightQ16 != (11L * Q16_ONE / 4)) ||
         (params.speedKiRightQ16 != (Q16_ONE / 8)) ||
+        (params.speedFeedforwardRightQ16 != (7L * Q16_ONE / 2)) ||
         (params.lineKpQ16 != (Q16_ONE / 2)) ||
         (params.lineKdQ16 != (Q16_ONE / 16)) ||
         (gResetRequests != 1U)) {
@@ -248,6 +279,35 @@ static int Test_RunCommandRequiresProtectedIdleStart(void)
     return 0;
 }
 
+static int Test_BenchCommandsRequireBenchState(void)
+{
+    ControlParams params = Test_DefaultParams();
+    UARTAutoPidConfig config = {&params, Test_RequestReset, 0};
+    char line[56];
+
+    gRunStartRequests = 0U;
+    gRunActive = false;
+    gBenchActive = false;
+    gRunStartAllowed = true;
+    UART_Auto_PID_Init(&config);
+    Test_Frame(line, sizeof(line), "BENCH SEQ:41");
+    if (!UART_Auto_PID_ProcessLineForTest(line) || !gBenchActive ||
+        (gBenchTarget != 5) || (gRunStartRequests != 1U)) {
+        return 40;
+    }
+    Test_Frame(line, sizeof(line), "BENCHTARGET SEQ:42 VALUE:8");
+    if (!UART_Auto_PID_ProcessLineForTest(line) || (gBenchTarget != 8)) {
+        return 41;
+    }
+    gRunActive = false;
+    gBenchActive = false;
+    Test_Frame(line, sizeof(line), "BENCHTARGET SEQ:43 VALUE:5");
+    if (UART_Auto_PID_ProcessLineForTest(line) || (gBenchTarget != 8)) {
+        return 42;
+    }
+    return 0;
+}
+
 int main(void)
 {
     int result = Test_AcceptsCompleteSetAll();
@@ -267,5 +327,9 @@ int main(void)
     if (result != 0) {
         return result;
     }
-    return Test_RunCommandRequiresProtectedIdleStart();
+    result = Test_RunCommandRequiresProtectedIdleStart();
+    if (result != 0) {
+        return result;
+    }
+    return Test_BenchCommandsRequireBenchState();
 }

@@ -6,11 +6,11 @@
 #include "control_params.h"
 #include "control_types.h"
 
-#define PARAM_GAIN_MAX_Q16          (64L * Q16_ONE)
+#define PARAM_GAIN_MAX_Q16          (1000L * Q16_ONE)
 #define PARAM_LINE_GAIN_MAX_Q16     (8L * Q16_ONE)
 #define PARAM_INTEGRAL_LIMIT_MAX    (1000000L)
 #define PARAM_SPEED_MAX             (1000)
-#define PARAM_PWM_MAX               (400)
+#define PARAM_PWM_MAX               (600)
 #define PARAM_DERIVATIVE_MAX        (7000)
 
 static ControlParams gControlParams = {
@@ -18,8 +18,8 @@ static ControlParams gControlParams = {
     12L * Q16_ONE, 0, (69L * Q16_ONE / 2),
     (Q16_ONE / 70), (Q16_ONE / 320),
     (5L * Q16_ONE / 8), 10000,
-    27, 67, 67,
-    300, 2333
+    20, 67, 67,
+    600, 2333
 };
 
 static bool ControlParams_IsValid(const ControlParams *params)

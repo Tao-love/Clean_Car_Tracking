@@ -5,6 +5,8 @@
 #include <stdint.h>
 
 void MPU6050_InitAndCalibrate(void);
+/* 供未来启动流程显式调用；当前 PID 调参阶段不接入任何启动路径。 */
+void MPU6050_RecalibrateForNextRun(void);
 void MPU6050_Update(void);
 int16_t MPU6050_GetTurnDamping(void);
 

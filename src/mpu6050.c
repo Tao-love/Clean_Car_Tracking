@@ -73,6 +73,11 @@ void MPU6050_InitAndCalibrate(void)
     gGyroZOffset = (int16_t) (sum / (int32_t) MPU6050_CALIBRATION_SAMPLES);
 }
 
+void MPU6050_RecalibrateForNextRun(void)
+{
+    MPU6050_InitAndCalibrate();
+}
+
 void MPU6050_Update(void)
 {
     int16_t gyroZRaw;

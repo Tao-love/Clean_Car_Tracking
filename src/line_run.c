@@ -22,6 +22,10 @@ static uint16_t gRunTicks;
 static int16_t gLastLineError;
 static bool gHasLastLineError;
 static bool gRunning;
+static bool gBenchRunning;
+static int16_t gBenchTarget;
+
+#define LINE_RUN_BENCH_DEFAULT_TARGET (5)
 
 static void LineRun_ResetControllerState(void)
 {
@@ -43,6 +47,8 @@ bool LineRun_Init(void)
     gParams = ControlParams_Get();
     Encoder_Init();
     gRunning = false;
+    gBenchRunning = false;
+    gBenchTarget = LINE_RUN_BENCH_DEFAULT_TARGET;
     LineRun_ResetControlState();
     Motor_Stop();
     return gParams != 0;
@@ -54,7 +60,30 @@ bool LineRun_Start(void)
         return false;
     }
     LineRun_ResetControlState();
+    gBenchRunning = false;
+    gBenchTarget = LINE_RUN_BENCH_DEFAULT_TARGET;
     gRunning = true;
+    return true;
+}
+
+bool LineRun_StartBench(void)
+{
+    if (gRunning || (gParams == 0)) {
+        return false;
+    }
+    LineRun_ResetControlState();
+    gBenchTarget = LINE_RUN_BENCH_DEFAULT_TARGET;
+    gBenchRunning = true;
+    gRunning = true;
+    return true;
+}
+
+bool LineRun_SetBenchTarget(int16_t target)
+{
+    if (!gRunning || !gBenchRunning || (target < 1) || (target > 8)) {
+        return false;
+    }
+    gBenchTarget = target;
     return true;
 }
 
@@ -62,6 +91,9 @@ void LineRun_Stop(void)
 {
     Motor_Stop();
     gRunning = false;
+    gBenchRunning = false;
+    gBenchTarget = LINE_RUN_BENCH_DEFAULT_TARGET;
+    UART_Auto_PID_OnRunStopped();
     LineRun_ResetControlState();
 }
 
@@ -85,17 +117,23 @@ void LineRun_ControlTick(void)
     }
 
     Encoder_UpdateSpeeds();
-    line = LineSensor_ReadSample();
-    if (line.valid) {
-        gLastLineError = line.error;
-        gHasLastLineError = true;
+    if (gBenchRunning) {
+        line.error = 0;
+        lineOutput.leftTarget = gBenchTarget;
+        lineOutput.rightTarget = gBenchTarget;
     } else {
-        line.valid = true;
-        line.error = gHasLastLineError ? gLastLineError : 0;
+        line = LineSensor_ReadSample();
+        if (line.valid) {
+            gLastLineError = line.error;
+            gHasLastLineError = true;
+        } else {
+            line.valid = true;
+            line.error = gHasLastLineError ? gLastLineError : 0;
+        }
+        MPU6050_Update();
+        lineOutput = LineControl_Step(
+            &gLineState, &line, gParams, MPU6050_GetTurnDamping());
     }
-    MPU6050_Update();
-    lineOutput = LineControl_Step(
-        &gLineState, &line, gParams, MPU6050_GetTurnDamping());
     leftSpeed = Encoder_GetLeftSpeed();
     rightSpeed = Encoder_GetRightSpeed();
     leftOutput = SpeedPI_Step(&gLeftPiState,
@@ -129,4 +167,9 @@ void LineRun_ControlTick(void)
 bool LineRun_IsRunning(void)
 {
     return gRunning;
+}
+
+bool LineRun_IsBenchRunning(void)
+{
+    return gRunning && gBenchRunning;
 }

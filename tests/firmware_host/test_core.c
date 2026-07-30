@@ -38,7 +38,7 @@ static int Test_ControlParams(void)
         (params->lineKdQ16 != (Q16_ONE / 320)) ||
         (params->derivativeAlphaQ16 != (5L * Q16_ONE / 8)) ||
         (params->speedIntegralLimit != 10000) ||
-        (params->baseSpeed != 27) ||
+        (params->baseSpeed != 5) ||
         (params->maxTargetSpeed != 67) ||
         (params->maxDeltaSpeed != 67) ||
         (params->maxPwm != 300) ||

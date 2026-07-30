@@ -64,6 +64,9 @@ bool UART_Auto_PID_ProcessLineForTest(const char *line);
  */
 void UART_Auto_PID_OnControlSample(const UARTAutoPidControlSample *sample);
 
+/* 由 LineRun_Stop 在主循环上下文通知本轮结束，排队一帧 running=0 遥测。 */
+void UART_Auto_PID_OnRunStopped(void);
+
 /* 仅供纯逻辑契约测试观察三分频脉冲；不消费待发送遥测。 */
 bool UART_Auto_PID_IsTelemetryReadyForTest(void);
 
