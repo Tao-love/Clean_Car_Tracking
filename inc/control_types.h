@@ -25,6 +25,18 @@ typedef struct {
     int16_t derivativeLimit;
 } ControlParams;
 
+typedef enum {
+    CONTROL_PROFILE_KEY1 = 0,
+    CONTROL_PROFILE_KEY2,
+    CONTROL_PROFILE_KEY3,
+    CONTROL_PROFILE_COUNT
+} ControlProfileId;
+
+typedef struct {
+    ControlParams params;
+    int32_t distanceCounts;
+} ControlModeProfile;
+
 typedef struct {
     uint8_t bitmap;
     uint8_t activeCount;

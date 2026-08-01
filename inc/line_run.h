@@ -3,11 +3,16 @@
 #define LINE_RUN_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #define LINE_RUN_DURATION_TICKS (1500U)
 
 bool LineRun_Init(void);
 bool LineRun_Start(void);
+/* 空闲时读取 KEY2 profile，按编码器距离运行直线模式。 */
+bool LineRun_StartStraight(void);
+/* 空闲时读取 KEY3 profile，按编码器距离运行循线一圈模式。 */
+bool LineRun_StartLine(void);
 /* 空闲时启动仅含编码器与左右速度 PI 的 10 秒双轮台架。 */
 bool LineRun_StartBench(void);
 /* 仅台架运行期间接受；下一控制 tick 同时用于左右轮。 */

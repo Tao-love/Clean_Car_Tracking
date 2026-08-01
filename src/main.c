@@ -20,18 +20,28 @@
 #include "main.h"
 #include "motor.h"
 #include "mpu6050.h"
+#include "Oled_Timer.h"
+#include "record.h"
 
 volatile uint32_t gControlTick = 0U;
 
-static void App_HandleKey1(void);
+static bool App_HandleKey1(void);
+static void App_HandleKeys(void);
+static bool App_HandleKey4(void);
 static void App_RequestControlReset(void *context);
 static KeyStartState gKey1StartState;
+static KeyStartState gKey2StartState;
+static KeyStartState gKey3StartState;
+static KeyStartState gKey4StartState;
 
 int main(void)
 {
     uint32_t lastProcessedTick = 0U;
     /* 按 SysConfig 生成配置初始化时钟、GPIO、PWM 和定时器；此时 PWM 默认比较值为 0。 */
     SYSCFG_DL_init();
+    /* 初始化 OLED 及 TIMG6 计时器，上电即显示 "Time: 00 s"。
+       必须在 Motor_Init 之前：OLED_Init 内部 100ms 延时确保 OLED 上电稳定。 */
+    OledTimer_Init();
     /* Motor_Init 的第一个硬件动作是同时清零两路 PWM 和四个方向脚。 */
     Motor_Init();
     if (!LineRun_Init()) {
@@ -39,6 +49,7 @@ int main(void)
             /* 固定参数未通过范围检查，保持统一停车。 */
         }
     }
+    Record_Init();
     {
         UARTAutoPidConfig config = {
             ControlParams_GetMutableForUart(), App_RequestControlReset, 0
@@ -47,6 +58,9 @@ int main(void)
         UART_Auto_PID_Init(&config);
     }
     KeyStart_Init(&gKey1StartState);
+    KeyStart_Init(&gKey2StartState);
+    KeyStart_Init(&gKey3StartState);
+    KeyStart_Init(&gKey4StartState);
 
     /* 允许 TIMG0 的 6.667 ms 周期中断进入 CPU，ISR 只递增单调 tick。 */
     NVIC_EnableIRQ(TIMER_CONTROL_INST_INT_IRQN);
@@ -58,12 +72,14 @@ int main(void)
 
         currentTick = gControlTick;
         if (currentTick != lastProcessedTick) {
-            App_HandleKey1();
+            App_HandleKeys();
             LineRun_ControlTick();
             lastProcessedTick = currentTick;
         }
         /* 主循环非阻塞轮询 UART2；控制 tick 和 ISR 均不执行串口 I/O。 */
         UART_Auto_PID_Service();
+        /* 仅秒数变化时刷新 OLED（~1 Hz），内部快速退出。 */
+        OledTimer_UpdateDisplay();
     }
 }
 
@@ -74,19 +90,76 @@ static void App_RequestControlReset(void *context)
 }
 
 /* KEY1 按下沿在 IDLE 启动；RUNNING 时立即停车，下一次按下才重启。 */
-static void App_HandleKey1(void)
+static bool App_HandleKey1(void)
 {
     bool key1Pressed = DL_GPIO_readPins(GPIO_KEYS_KEY1_PORT,
         GPIO_KEYS_KEY1_PIN) == 0U;
 
     if (!KeyStart_OnSample(&gKey1StartState, key1Pressed)) {
-        return;
+        return false;
     }
     if (LineRun_IsRunning()) {
         LineRun_Stop();
+    } else if (Record_IsRecording()) {
+        /* KEY1 不得在记录期间启动电机；KEY4 负责结束记录。 */
     } else {
         (void) LineRun_Start();
     }
+    return true;
+}
+
+static void App_HandleKeys(void)
+{
+    bool key2Pressed;
+    bool key3Pressed;
+    bool key2Event;
+    bool key3Event;
+
+    key2Pressed = DL_GPIO_readPins(GPIO_KEYS_KEY2_PORT,
+        GPIO_KEYS_KEY2_PIN) == 0U;
+    key3Pressed = DL_GPIO_readPins(GPIO_KEYS_KEY3_PORT,
+        GPIO_KEYS_KEY3_PIN) == 0U;
+    key2Event = KeyStart_OnSample(&gKey2StartState, key2Pressed);
+    key3Event = KeyStart_OnSample(&gKey3StartState, key3Pressed);
+
+    if (App_HandleKey1()) {
+        return;
+    }
+    if (App_HandleKey4()) {
+        return;
+    }
+    if (LineRun_IsRunning()) {
+        return;
+    }
+    if (Record_IsRecording()) {
+        return;
+    }
+    if (key2Event) {
+        (void) LineRun_StartStraight();
+        return;
+    }
+    if (key3Event) {
+        (void) LineRun_StartLine();
+    }
+}
+
+static bool App_HandleKey4(void)
+{
+    bool key4Pressed = DL_GPIO_readPins(GPIO_KEYS_KEY4_PORT,
+        GPIO_KEYS_KEY4_PIN) == 0U;
+
+    if (!KeyStart_OnSample(&gKey4StartState, key4Pressed)) {
+        return false;
+    }
+    if (LineRun_IsRunning()) {
+        return true;
+    }
+    if (Record_IsRecording()) {
+        (void) Record_Stop();
+    } else {
+        (void) Record_Start();
+    }
+    return true;
 }
 
 void TIMER_CONTROL_INST_IRQHandler(void)

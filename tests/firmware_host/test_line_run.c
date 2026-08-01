@@ -16,9 +16,16 @@
 
 static ControlParams gParams;
 static const ControlParams *gParamsResult = &gParams;
+static ControlModeProfile gProfiles[CONTROL_PROFILE_COUNT];
+static bool gProfileValid[CONTROL_PROFILE_COUNT];
 static LineSensorSample gSensorSample;
 static LineSensorSample gLastLineInput;
 static int16_t gLastTurnDamping;
+static int16_t gLastLeftTarget;
+static int16_t gLastRightTarget;
+static int16_t gLastLineParamsBase;
+static int32_t gLeftCount;
+static int32_t gRightCount;
 static uint32_t gEncoderInitCalls;
 static uint32_t gEncoderUpdateCalls;
 static uint32_t gMotorSetCalls;
@@ -41,8 +48,18 @@ void _c_int00(void)
 }
 
 const ControlParams *ControlParams_Get(void) { return gParamsResult; }
+const ControlModeProfile *ControlParams_GetProfile(ControlProfileId id)
+{
+    if ((id < CONTROL_PROFILE_KEY1) ||
+        (id >= CONTROL_PROFILE_COUNT) || !gProfileValid[id]) {
+        return 0;
+    }
+    return &gProfiles[id];
+}
 void Encoder_Init(void) { gEncoderInitCalls++; }
 void Encoder_UpdateSpeeds(void) { gEncoderUpdateCalls++; }
+int32_t Encoder_GetLeftCount(void) { return gLeftCount; }
+int32_t Encoder_GetRightCount(void) { return gRightCount; }
 int16_t Encoder_GetLeftSpeed(void) { return 3; }
 int16_t Encoder_GetRightSpeed(void) { return 4; }
 LineSensorSample LineSensor_ReadSample(void) { return gSensorSample; }
@@ -53,6 +70,8 @@ void Motor_SetSpeed(int16_t leftPwm, int16_t rightPwm)
     gMotorSetCalls++;
 }
 void Motor_Stop(void) { gMotorStopCalls++; }
+void OledTimer_StartTiming(void) {}
+void OledTimer_StopTiming(void) {}
 void MPU6050_Update(void) { gMpuUpdateCalls++; }
 int16_t MPU6050_GetTurnDamping(void) { return 17; }
 
@@ -71,6 +90,13 @@ LineControlOutput LineControl_Step(LineControlState *state,
     (void) params;
     gLastTurnDamping = turnDamping;
     gLastLineInput = *sample;
+    gLastLeftTarget = output.leftTarget;
+    gLastRightTarget = output.rightTarget;
+    if (params != 0) {
+        gLastLineParamsBase = params->baseSpeed;
+        gLastLeftTarget = params->baseSpeed;
+        gLastRightTarget = params->baseSpeed;
+    }
     return output;
 }
 
@@ -92,6 +118,8 @@ SpeedPIOutput SpeedPI_Step(SpeedPIState *state, int16_t target,
     (void) feedforwardQ16;
     (void) integralLimit;
     (void) pwmLimit;
+    gLastLeftTarget = target;
+    gLastRightTarget = target;
     return output;
 }
 
@@ -103,6 +131,11 @@ static void Test_ResetCounters(void)
     gMotorStopCalls = 0U;
     gLineResetCalls = 0U;
     gSpeedResetCalls = 0U;
+    gLastLeftTarget = 0;
+    gLastRightTarget = 0;
+    gLastLineParamsBase = 0;
+    gLeftCount = 0;
+    gRightCount = 0;
 }
 
 static int Test_DurationAndStartStop(void)
@@ -166,6 +199,76 @@ static int Test_InvalidLineKeepsLastError(void)
     if (!gLastLineInput.valid || (gLastLineInput.error != 0)) {
         return 14;
     }
+    return 0;
+}
+
+static int Test_ModeProfilesAndDistanceStops(void)
+{
+    gProfiles[CONTROL_PROFILE_KEY1].distanceCounts = 0;
+    gProfiles[CONTROL_PROFILE_KEY2].distanceCounts = 10;
+    gProfiles[CONTROL_PROFILE_KEY2].params.baseSpeed = 21;
+    gProfiles[CONTROL_PROFILE_KEY3].distanceCounts = 20;
+    gProfiles[CONTROL_PROFILE_KEY3].params.baseSpeed = 31;
+
+    gLeftCount = 100;
+    gRightCount = 100;
+    if (!LineRun_Start()) {
+        return 40;
+    }
+    LineRun_ControlTick();
+    if (!LineRun_IsRunning()) {
+        return 41;
+    }
+    LineRun_Stop();
+
+    gLeftCount = 200;
+    gRightCount = 200;
+    gLastLeftTarget = 0;
+    gLastRightTarget = 0;
+    if (!LineRun_StartStraight()) {
+        return 42;
+    }
+    if ((gLastLeftTarget != 0) || (gLastRightTarget != 0)) {
+        return 43;
+    }
+    LineRun_ControlTick();
+    if ((gLastLeftTarget != 21) || (gLastRightTarget != 21)) {
+        return 44;
+    }
+    gLeftCount += 10;
+    gRightCount += 10;
+    LineRun_ControlTick();
+    if (LineRun_IsRunning()) {
+        return 45;
+    }
+
+    gLeftCount = 400;
+    gRightCount = 400;
+    gSensorSample.valid = true;
+    if (!LineRun_StartLine()) {
+        return 46;
+    }
+    LineRun_ControlTick();
+    if (gLastLineParamsBase != 31) {
+        return 47;
+    }
+    gLeftCount += 20;
+    gRightCount += 20;
+    LineRun_ControlTick();
+    if (LineRun_IsRunning()) {
+        return 48;
+    }
+    return 0;
+}
+
+static int Test_InvalidModeProfileIsRejected(void)
+{
+    gProfileValid[CONTROL_PROFILE_KEY2] = false;
+    if (LineRun_StartStraight()) {
+        gProfileValid[CONTROL_PROFILE_KEY2] = true;
+        return 50;
+    }
+    gProfileValid[CONTROL_PROFILE_KEY2] = true;
     return 0;
 }
 
@@ -249,7 +352,25 @@ int main(void)
     int result;
 
     gParams.maxPwm = 300;
+    gParams.baseSpeed = 15;
+    gProfiles[CONTROL_PROFILE_KEY1].params = gParams;
+    gProfiles[CONTROL_PROFILE_KEY2].params = gParams;
+    gProfiles[CONTROL_PROFILE_KEY3].params = gParams;
+    gProfiles[CONTROL_PROFILE_KEY1].distanceCounts = 0;
+    gProfiles[CONTROL_PROFILE_KEY2].distanceCounts = 1200;
+    gProfiles[CONTROL_PROFILE_KEY3].distanceCounts = 8000;
+    gProfileValid[CONTROL_PROFILE_KEY1] = true;
+    gProfileValid[CONTROL_PROFILE_KEY2] = true;
+    gProfileValid[CONTROL_PROFILE_KEY3] = true;
     result = Test_DurationAndStartStop();
+    if (result != 0) {
+        return result;
+    }
+    result = Test_ModeProfilesAndDistanceStops();
+    if (result != 0) {
+        return result;
+    }
+    result = Test_InvalidModeProfileIsRejected();
     if (result != 0) {
         return result;
     }

@@ -107,20 +107,6 @@ extern "C" {
 
 
 
-/* Defines for I2C_OLED */
-#define I2C_OLED_INST                                                       I2C0
-#define I2C_OLED_INST_IRQHandler                                 I2C0_IRQHandler
-#define I2C_OLED_INST_INT_IRQN                                     I2C0_INT_IRQn
-#define I2C_OLED_BUS_SPEED_HZ                                             400000
-#define GPIO_I2C_OLED_SDA_PORT                                             GPIOA
-#define GPIO_I2C_OLED_SDA_PIN                                      DL_GPIO_PIN_0
-#define GPIO_I2C_OLED_IOMUX_SDA                                   (IOMUX_PINCM1)
-#define GPIO_I2C_OLED_IOMUX_SDA_FUNC                    IOMUX_PINCM1_PF_I2C0_SDA
-#define GPIO_I2C_OLED_SCL_PORT                                             GPIOA
-#define GPIO_I2C_OLED_SCL_PIN                                      DL_GPIO_PIN_1
-#define GPIO_I2C_OLED_IOMUX_SCL                                   (IOMUX_PINCM2)
-#define GPIO_I2C_OLED_IOMUX_SCL_FUNC                    IOMUX_PINCM2_PF_I2C0_SCL
-
 /* Defines for I2C_MPU6050 */
 #define I2C_MPU6050_INST                                                    I2C1
 #define I2C_MPU6050_INST_IRQHandler                              I2C1_IRQHandler
@@ -261,6 +247,15 @@ extern "C" {
 /* Defines for LED2: GPIOA.22 with pinCMx 47 on package pin 18 */
 #define GPIO_LED_LED2_PIN                                       (DL_GPIO_PIN_22)
 #define GPIO_LED_LED2_IOMUX                                      (IOMUX_PINCM47)
+/* Port definition for Pin Group GPIO_OLED */
+#define GPIO_OLED_PORT                                                   (GPIOA)
+
+/* Defines for SCL: GPIOA.1 with pinCMx 2 on package pin 34 */
+#define GPIO_OLED_SCL_PIN                                        (DL_GPIO_PIN_1)
+#define GPIO_OLED_SCL_IOMUX                                       (IOMUX_PINCM2)
+/* Defines for SDA: GPIOA.0 with pinCMx 1 on package pin 33 */
+#define GPIO_OLED_SDA_PIN                                        (DL_GPIO_PIN_0)
+#define GPIO_OLED_SDA_IOMUX                                       (IOMUX_PINCM1)
 
 
 /* clang-format on */
@@ -271,7 +266,6 @@ void SYSCFG_DL_GPIO_init(void);
 void SYSCFG_DL_SYSCTL_init(void);
 void SYSCFG_DL_PWM_MOTOR_init(void);
 void SYSCFG_DL_TIMER_CONTROL_init(void);
-void SYSCFG_DL_I2C_OLED_init(void);
 void SYSCFG_DL_I2C_MPU6050_init(void);
 void SYSCFG_DL_UART_DEBUG_init(void);
 

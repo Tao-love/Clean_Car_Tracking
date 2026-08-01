@@ -74,6 +74,9 @@ bool LineRun_SetBenchTarget(int16_t target)
     return true;
 }
 
+int32_t Record_GetLeft(void) { return 0; }
+int32_t Record_GetRight(void) { return 0; }
+
 static ControlParams Test_DefaultParams(void)
 {
     ControlParams params = {
@@ -109,14 +112,15 @@ static int Test_AcceptsCompleteSetAll(void)
 {
     ControlParams params = Test_DefaultParams();
     UARTAutoPidConfig config = {&params, Test_RequestReset, 0};
-    char line[160];
+    char line[300];
 
     gResetRequests = 0U;
     UART_Auto_PID_Init(&config);
     Test_Frame(line, sizeof(line),
         "SETALL SEQ:17 LKP:1.500000 LKI:0.250000 LFF:4.250000 "
         "RKP:2.750000 RKI:0.125000 RFF:3.500000 LINEP:0.500000 "
-        "LINED:0.062500");
+        "LINED:0.062500 ALPHA:0.500000 ILIMIT:20000 BASE:15 "
+        "TARGET:67 DELTA:35 PWM:1000 DLIMIT:2000");
     if (!UART_Auto_PID_ProcessLineForTest(line)) {
         return 1;
     }
@@ -128,6 +132,13 @@ static int Test_AcceptsCompleteSetAll(void)
         (params.speedFeedforwardRightQ16 != (7L * Q16_ONE / 2)) ||
         (params.lineKpQ16 != (Q16_ONE / 2)) ||
         (params.lineKdQ16 != (Q16_ONE / 16)) ||
+        (params.derivativeAlphaQ16 != (Q16_ONE / 2)) ||
+        (params.speedIntegralLimit != 20000) ||
+        (params.baseSpeed != 15) ||
+        (params.maxTargetSpeed != 67) ||
+        (params.maxDeltaSpeed != 35) ||
+        (params.maxPwm != 1000) ||
+        (params.derivativeLimit != 2000) ||
         (gResetRequests != 1U)) {
         return 2;
     }
@@ -183,6 +194,16 @@ static int Test_InvalidFramesAreAtomic(void)
         (memcmp(&params, &unchanged, sizeof(params)) != 0) ||
         (gResetRequests != 0U)) {
         return 14;
+    }
+
+    Test_Frame(line, sizeof(line),
+        "SETALL SEQ:2 LKP:1 LKI:0 LFF:1 RKP:1 RKI:0 RFF:1 "
+        "LINEP:0 LINED:0 ALPHA:0.625 ILIMIT:10000 BASE:15 "
+        "TARGET:67 DELTA:35 PWM:1001 DLIMIT:2333");
+    if (UART_Auto_PID_ProcessLineForTest(line) ||
+        (memcmp(&params, &unchanged, sizeof(params)) != 0) ||
+        (gResetRequests != 0U)) {
+        return 15;
     }
     return 0;
 }

@@ -1,23 +1,39 @@
-# Clean_Car：MSPM0G3507 单一循线固件
+# Clean_Car：MSPM0G3507 三模式循线固件
 
-本工程只运行 KEY1 启动的自动循线：八路数字灰度位置误差经过循线 PD，形成左右目标速度；左右速度 PI 与前馈根据编码器速度计算 PWM；MPU6050 Z 轴角速度提供转弯阻尼。控制周期为 6.667 ms（150 Hz），每轮最多 1500 个控制 tick，约 10 秒。
+本工程提供三种按键运动模式：KEY1 普通循线、KEY2 编码器定距直线、KEY3 编码器定距循线。循线模式使用八路数字灰度位置误差、循线 PD、左右速度 PI、前馈和 MPU6050 转弯阻尼；控制周期为 6.667 ms（150 Hz）。
 
 ## 当前运行方式
 
 上电初始化完成后电机保持停车：
 
-1. IDLE 时按下并松开 KEY1，启动一轮全新的循线。
-2. RUNNING 时再次按下 KEY1，立即统一停车并返回 IDLE。
-3. 停车会清除 1500 tick 计时、左右速度 PI、循线 PD 和本轮最后灰度误差；必须再次按 KEY1 才会重新启动。
-4. 正常运行到第 1500 个 tick 后立即停车并回到 IDLE，可再次按 KEY1。
+1. 空闲时按下并松开 KEY1，启动普通循线，最长运行 1500 个 tick（约 10 秒）。
+2. 空闲时按下并松开 KEY2，读取 KEY2 profile，左右轮使用 `baseSpeed` 直线运行，达到 `distanceCounts=1200` 后停车。
+3. 空闲时按下并松开 KEY3，读取 KEY3 profile，继续循线，达到 `distanceCounts=8000` 后停车。
+4. 任意模式运行中再次按下 KEY1，立即统一停车并返回空闲；运行中 KEY2/KEY3 不抢占当前模式。
+5. KEY2/KEY3 的距离值目前只是待编码器实测的临时占位，不能视为已完成车辆标定；所有模式仍受 1500 tick 超时保护。
+6. 空闲时第一次按下 KEY4 进入记录态并锁定当前左右编码器计数为零点；第二次按下 KEY4 结束记录。记录态不驱动电机，保存两次按键之间的左右增量。
 
 灰度有效时使用当前误差；灰度无效时持续使用本轮最后一次有效误差。本轮尚未出现有效样本时使用误差 0，因此车辆仍按基础速度前进，直到重新识线、KEY1 停车或达到 10 秒上限。
 
-当前没有丢线、堵转、控制超期或故障锁存状态机。仍保留统一 `Motor_Stop()`、目标速度限幅、差速限幅、速度 PI 积分/PWM 限幅、`maxPwm <= 400` 固件范围检查和 10 秒运行上限。丢线延续是有意行为，不等同于安全停车。
+当前没有 `LOST_LINE`、堵转或故障锁存状态机。仍保留统一 `Motor_Stop()`、目标速度限幅、差速限幅、速度 PI 积分/PWM 限幅、参数范围检查和 1500 tick 超时。
+
+## 三套独立参数 profile
+
+`src/control_params.c` 中保留三个完整参数块。每个 profile 都有独立的 15 个控制参数（左右速度 Kp/Ki/前馈、循线 Kp/Kd、滤波、积分、速度和 PWM 限制）以及 `distanceCounts`：
+
+| Profile | 按键 | 初始距离 | 用途 |
+| --- | --- | ---: | --- |
+| `CONTROL_PROFILE_KEY1` | KEY1 / 上位机 `RUN` | 0 | 1500 tick 普通循线 |
+| `CONTROL_PROFILE_KEY2` | KEY2 | 1200（待实测） | 直线定距 |
+| `CONTROL_PROFILE_KEY3` | KEY3 | 8000（待实测） | 循线一圈定距 |
+
+三套 15 参数当前先复制 Clean_Car 的 KEY1 参数，之后可在对应 profile 中独立修改。UART `SETALL` 仍只更新 KEY1 profile，因此上位机启动路径继续使用 KEY1 模式。
+
+KEY4 的记录结果保存在固件 RAM 中。下一次 `SETALL`（上位机手动菜单中的 `P`）成功时，ACK 正文附加为 `ACK,<seq>,<left>,<right>`；`RUN` ACK 保持原格式。`Half_Hand_PID` 收到这两个字段后更新其目录下的 `record.h`，该文件是上位机侧的标定记录，不会在 MCU 运行时被直接改写，也不会自动替换 KEY2/KEY3 距离参数。
 
 核心文件：
 
-- `src/line_run.c`：五个运行 API、KEY1 运行状态、1500 tick 上限和灰度误差延续。
+- `src/line_run.c`：三种按键模式、BENCH 台架模式、编码器距离结束、1500 tick 上限和灰度误差延续。
 - `src/control_params.c`：唯一固定实车参数表及启动前范围检查。
 - `src/line_control.c`：循线 PD、差速斜率限制和单轮目标限幅。
 - `src/speed_pi.c`：左右速度 PI、前馈、积分限幅和 PWM 限幅。
@@ -37,7 +53,7 @@
 | 速度积分限幅 | 10000 |
 | baseSpeed | 27 |
 | maxTargetSpeed / maxDeltaSpeed | 67 / 67 |
-| maxPwm | 300（固件硬上限 400） |
+| maxPwm | 600（参数校验上限 1000） |
 | derivativeLimit | 2333 |
 
 修改参数只编辑 `src/control_params.c`，随后必须重新执行严格验证、编译和烧录。不要手工修改 `syscfg_gen/`。

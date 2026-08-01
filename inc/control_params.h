@@ -9,6 +9,9 @@
 /* 参数全部有效时返回活动只读表，否则返回空指针并阻止启动。 */
 const ControlParams *ControlParams_Get(void);
 
+/* 返回指定按键模式的完整参数和距离配置；配置无效时返回空指针。 */
+const ControlModeProfile *ControlParams_GetProfile(ControlProfileId id);
+
 /* 仅供 UART 自动调参模块提交已校验的运行时参数。 */
 ControlParams *ControlParams_GetMutableForUart(void);
 

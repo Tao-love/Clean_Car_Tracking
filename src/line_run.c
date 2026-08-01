@@ -12,20 +12,40 @@
 #include "line_run.h"
 #include "motor.h"
 #include "mpu6050.h"
+#include "Oled_Timer.h"
 #include "speed_pi.h"
 
 static const ControlParams *gParams;
+static const ControlModeProfile *gProfile;
 static LineControlState gLineState;
 static SpeedPIState gLeftPiState;
 static SpeedPIState gRightPiState;
 static uint16_t gRunTicks;
+static int32_t gStartLeftCount;
+static int32_t gStartRightCount;
+static int32_t gTargetDistanceCounts;
 static int16_t gLastLineError;
 static bool gHasLastLineError;
 static bool gRunning;
 static bool gBenchRunning;
 static int16_t gBenchTarget;
 
+typedef enum {
+    LINE_RUN_MODE_STOPPED = 0,
+    LINE_RUN_MODE_TIMED,
+    LINE_RUN_MODE_STRAIGHT,
+    LINE_RUN_MODE_LINE,
+    LINE_RUN_MODE_BENCH
+} LineRunMode;
+
+static LineRunMode gMode;
+
 #define LINE_RUN_BENCH_DEFAULT_TARGET (5)
+
+static bool LineRun_StartProfile(ControlProfileId profileId,
+    LineRunMode mode);
+static bool LineRun_HasReachedDistance(void);
+static int32_t LineRun_AbsI32(int32_t value);
 
 static void LineRun_ResetControllerState(void)
 {
@@ -40,14 +60,19 @@ static void LineRun_ResetControlState(void)
 {
     LineRun_ResetControllerState();
     gRunTicks = 0U;
+    gStartLeftCount = 0;
+    gStartRightCount = 0;
+    gTargetDistanceCounts = 0;
 }
 
 bool LineRun_Init(void)
 {
-    gParams = ControlParams_Get();
+    gProfile = ControlParams_GetProfile(CONTROL_PROFILE_KEY1);
+    gParams = (gProfile == 0) ? 0 : &gProfile->params;
     Encoder_Init();
     gRunning = false;
     gBenchRunning = false;
+    gMode = LINE_RUN_MODE_STOPPED;
     gBenchTarget = LINE_RUN_BENCH_DEFAULT_TARGET;
     LineRun_ResetControlState();
     Motor_Stop();
@@ -56,26 +81,26 @@ bool LineRun_Init(void)
 
 bool LineRun_Start(void)
 {
-    if (gRunning || (gParams == 0)) {
-        return false;
-    }
-    LineRun_ResetControlState();
-    gBenchRunning = false;
-    gBenchTarget = LINE_RUN_BENCH_DEFAULT_TARGET;
-    gRunning = true;
-    return true;
+    return LineRun_StartProfile(CONTROL_PROFILE_KEY1,
+        LINE_RUN_MODE_TIMED);
+}
+
+bool LineRun_StartStraight(void)
+{
+    return LineRun_StartProfile(CONTROL_PROFILE_KEY2,
+        LINE_RUN_MODE_STRAIGHT);
+}
+
+bool LineRun_StartLine(void)
+{
+    return LineRun_StartProfile(CONTROL_PROFILE_KEY3,
+        LINE_RUN_MODE_LINE);
 }
 
 bool LineRun_StartBench(void)
 {
-    if (gRunning || (gParams == 0)) {
-        return false;
-    }
-    LineRun_ResetControlState();
-    gBenchTarget = LINE_RUN_BENCH_DEFAULT_TARGET;
-    gBenchRunning = true;
-    gRunning = true;
-    return true;
+    return LineRun_StartProfile(CONTROL_PROFILE_KEY1,
+        LINE_RUN_MODE_BENCH);
 }
 
 bool LineRun_SetBenchTarget(int16_t target)
@@ -90,8 +115,10 @@ bool LineRun_SetBenchTarget(int16_t target)
 void LineRun_Stop(void)
 {
     Motor_Stop();
+    OledTimer_StopTiming();
     gRunning = false;
     gBenchRunning = false;
+    gMode = LINE_RUN_MODE_STOPPED;
     gBenchTarget = LINE_RUN_BENCH_DEFAULT_TARGET;
     UART_Auto_PID_OnRunStopped();
     LineRun_ResetControlState();
@@ -117,10 +144,18 @@ void LineRun_ControlTick(void)
     }
 
     Encoder_UpdateSpeeds();
+    if (LineRun_HasReachedDistance()) {
+        LineRun_Stop();
+        return;
+    }
     if (gBenchRunning) {
         line.error = 0;
         lineOutput.leftTarget = gBenchTarget;
         lineOutput.rightTarget = gBenchTarget;
+    } else if (gMode == LINE_RUN_MODE_STRAIGHT) {
+        line.error = 0;
+        lineOutput.leftTarget = gParams->baseSpeed;
+        lineOutput.rightTarget = gParams->baseSpeed;
     } else {
         line = LineSensor_ReadSample();
         if (line.valid) {
@@ -172,4 +207,58 @@ bool LineRun_IsRunning(void)
 bool LineRun_IsBenchRunning(void)
 {
     return gRunning && gBenchRunning;
+}
+
+static bool LineRun_StartProfile(ControlProfileId profileId,
+    LineRunMode mode)
+{
+    const ControlModeProfile *profile;
+
+    if (gRunning) {
+        return false;
+    }
+    profile = ControlParams_GetProfile(profileId);
+    if (profile == 0) {
+        return false;
+    }
+    if (((mode == LINE_RUN_MODE_STRAIGHT) ||
+        (mode == LINE_RUN_MODE_LINE)) &&
+        (profile->distanceCounts <= 0)) {
+        return false;
+    }
+    LineRun_ResetControlState();
+    gProfile = profile;
+    gParams = &profile->params;
+    gStartLeftCount = Encoder_GetLeftCount();
+    gStartRightCount = Encoder_GetRightCount();
+    gTargetDistanceCounts = profile->distanceCounts;
+    gBenchTarget = LINE_RUN_BENCH_DEFAULT_TARGET;
+    gMode = mode;
+    gBenchRunning = mode == LINE_RUN_MODE_BENCH;
+    gRunning = true;
+    OledTimer_StartTiming();
+    return true;
+}
+
+static bool LineRun_HasReachedDistance(void)
+{
+    int32_t leftDelta;
+    int32_t rightDelta;
+    int32_t averageDelta;
+
+    if ((gMode != LINE_RUN_MODE_STRAIGHT) &&
+        (gMode != LINE_RUN_MODE_LINE)) {
+        return false;
+    }
+    leftDelta = LineRun_AbsI32(
+        Encoder_GetLeftCount() - gStartLeftCount);
+    rightDelta = LineRun_AbsI32(
+        Encoder_GetRightCount() - gStartRightCount);
+    averageDelta = (leftDelta + rightDelta) / 2;
+    return averageDelta >= gTargetDistanceCounts;
+}
+
+static int32_t LineRun_AbsI32(int32_t value)
+{
+    return (value < 0) ? -value : value;
 }

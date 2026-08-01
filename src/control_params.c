@@ -10,16 +10,45 @@
 #define PARAM_LINE_GAIN_MAX_Q16     (8L * Q16_ONE)
 #define PARAM_INTEGRAL_LIMIT_MAX    (1000000L)
 #define PARAM_SPEED_MAX             (1000)
-#define PARAM_PWM_MAX               (600)
+#define PARAM_PWM_MAX               (1000)
 #define PARAM_DERIVATIVE_MAX        (7000)
+#define PARAM_DISTANCE_COUNTS_MAX   (1000000L)
 
-static ControlParams gControlParams = {
-    12L * Q16_ONE, 0, 42L * Q16_ONE,
-    12L * Q16_ONE, 0, (69L * Q16_ONE / 2),
-    (Q16_ONE / 70), (Q16_ONE / 320),
-    (5L * Q16_ONE / 8), 10000,
-    20, 67, 67,
-    600, 2333
+/* KEY2/KEY3 先复制 KEY1 的 15 个控制参数；距离值是待编码器实测的临时占位。 */
+static ControlModeProfile gProfiles[CONTROL_PROFILE_COUNT] = {
+    {
+        {
+            12L * Q16_ONE, 0, 42L * Q16_ONE,
+            12L * Q16_ONE, 0, (69L * Q16_ONE / 2),
+            (Q16_ONE / 70), (Q16_ONE / 320),
+            (5L * Q16_ONE / 8), 10000,
+            15, 67, 35,
+            600, 2333
+        },
+        0
+    },
+    {
+        {
+            12L * Q16_ONE, 0, 42L * Q16_ONE,
+            12L * Q16_ONE, 0, (69L * Q16_ONE / 2),
+            (Q16_ONE / 70), (Q16_ONE / 320),
+            (5L * Q16_ONE / 8), 10000,
+            15, 67, 35,
+            600, 2333
+        },
+        1200
+    },
+    {
+        {
+            12L * Q16_ONE, 0, 42L * Q16_ONE,
+            12L * Q16_ONE, 0, (69L * Q16_ONE / 2),
+            (Q16_ONE / 70), (Q16_ONE / 320),
+            (5L * Q16_ONE / 8), 10000,
+            15, 67, 35,
+            600, 2333
+        },
+        8000
+    }
 };
 
 static bool ControlParams_IsValid(const ControlParams *params)
@@ -60,12 +89,36 @@ static bool ControlParams_IsValid(const ControlParams *params)
     return params->baseSpeed <= params->maxTargetSpeed;
 }
 
+static bool ControlProfile_IsValid(ControlProfileId id,
+    const ControlModeProfile *profile)
+{
+    if ((profile == 0) || !ControlParams_IsValid(&profile->params)) {
+        return false;
+    }
+    if (id == CONTROL_PROFILE_KEY1) {
+        return profile->distanceCounts == 0;
+    }
+    return (profile->distanceCounts > 0) &&
+        (profile->distanceCounts <= PARAM_DISTANCE_COUNTS_MAX);
+}
+
 const ControlParams *ControlParams_Get(void)
 {
-    return ControlParams_IsValid(&gControlParams) ? &gControlParams : 0;
+    return ControlProfile_IsValid(CONTROL_PROFILE_KEY1,
+        &gProfiles[CONTROL_PROFILE_KEY1]) ?
+        &gProfiles[CONTROL_PROFILE_KEY1].params : 0;
+}
+
+const ControlModeProfile *ControlParams_GetProfile(ControlProfileId id)
+{
+    if ((id < CONTROL_PROFILE_KEY1) || (id >= CONTROL_PROFILE_COUNT) ||
+        !ControlProfile_IsValid(id, &gProfiles[id])) {
+        return 0;
+    }
+    return &gProfiles[id];
 }
 
 ControlParams *ControlParams_GetMutableForUart(void)
 {
-    return &gControlParams;
+    return &gProfiles[CONTROL_PROFILE_KEY1].params;
 }

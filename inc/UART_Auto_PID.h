@@ -8,7 +8,7 @@
 
 #include "control_types.h"
 
-#define UART_AUTO_PID_MAX_LINE (127U)
+#define UART_AUTO_PID_MAX_LINE (255U)
 #define UART_AUTO_PID_TELEMETRY_COLUMNS (21U)
 
 typedef void (*UARTAutoPidResetCallback)(void *context);
